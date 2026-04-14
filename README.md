@@ -1,5 +1,10 @@
 # Planificateur de repas
 
+## Version actuelle
+
+- `0.1.0`
+- Le suivi des evolutions se fait dans `CHANGELOG.md`
+
 ## Apercu
 
 Le Planificateur de repas est une application web responsive concue pour aider a organiser les repas de la semaine, gerer des recettes, conserver l'historique des semaines precedentes et produire une liste d'epicerie associee aux repas planifies.
