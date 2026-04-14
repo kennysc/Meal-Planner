@@ -19,6 +19,10 @@ import type { Locale, Meal, MealStatus, Recipe, ShoppingItem, Suggestion, Week, 
 
 function App() {
   const [locale, setLocale] = useState<Locale>('fr-CA')
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light'
+    return window.localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
+  })
   const [activeTab, setActiveTab] = useState<'planner' | 'recipes' | 'history'>('planner')
   const [week, setWeek] = useState<Week | null>(null)
   const [weeks, setWeeks] = useState<WeekSummary[]>([])
@@ -46,6 +50,11 @@ function App() {
   useEffect(() => {
     void loadDashboard(locale)
   }, [locale])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    window.localStorage.setItem('theme', theme)
+  }, [theme])
 
   async function loadDashboard(nextLocale: Locale) {
     setLoading(true)
@@ -294,20 +303,26 @@ function App() {
   return (
     <div className="app-shell">
       <header className="hero-card">
-        <div>
-          <p className="eyebrow">{t(locale, 'weekOf')}</p>
+        <div className="hero-title-row">
           <h1>{t(locale, 'appTitle')}</h1>
-          <p className="hero-subtitle">{t(locale, 'appSubtitle')}</p>
+          <div className="week-pill">{week?.label}</div>
         </div>
         <div className="hero-actions">
+          <button
+            className="theme-toggle icon-button"
+            onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))}
+            aria-label={theme === 'light' ? t(locale, 'darkMode') : t(locale, 'lightMode')}
+            title={theme === 'light' ? t(locale, 'darkMode') : t(locale, 'lightMode')}
+          >
+            <span aria-hidden="true">{theme === 'light' ? '◐' : '○'}</span>
+          </button>
           <label className="language-picker">
-            <span>{t(locale, 'language')}</span>
+            <span className="sr-only">{t(locale, 'language')}</span>
             <select value={locale} onChange={(event) => setLocale(event.target.value as Locale)}>
               <option value="fr-CA">Francais</option>
               <option value="en-CA">English</option>
             </select>
           </label>
-          <div className="week-pill">{week?.label}</div>
         </div>
       </header>
 
@@ -326,12 +341,14 @@ function App() {
           <section className={activeTab === 'planner' ? 'content-column' : 'content-column hidden'}>
             <article className="panel planner-panel">
               <div className="panel-header">
-                <div>
-                  <h2>{t(locale, 'planner')}</h2>
-                  <p>{t(locale, 'plannerHint')}</p>
-                </div>
-                <button className="secondary-button" onClick={handleCopyPreviousWeek}>
-                  {t(locale, 'copyPreviousWeek')}
+                <h2>{t(locale, 'planner')}</h2>
+                <button
+                  className="secondary-button icon-button"
+                  onClick={handleCopyPreviousWeek}
+                  aria-label={t(locale, 'copyPreviousWeek')}
+                  title={t(locale, 'copyPreviousWeek')}
+                >
+                  <span aria-hidden="true">↺</span>
                 </button>
               </div>
 
@@ -379,14 +396,14 @@ function App() {
                               onChange={(event) => void handleMealFieldChange(meal, 'notes', event.target.value)}
                             />
                             <div className="meal-actions">
-                              {draft.recipeUrl ? (
-                                <a className="link-button" href={draft.recipeUrl} target="_blank" rel="noreferrer">
-                                  {t(locale, 'openRecipe')}
-                                </a>
-                              ) : null}
-                              <button className="primary-button" onClick={() => void handleMealSave(meal)}>
-                                {t(locale, 'save')}
-                              </button>
+                               {draft.recipeUrl ? (
+                                 <a className="link-button icon-button" href={draft.recipeUrl} target="_blank" rel="noreferrer" aria-label={t(locale, 'openRecipe')} title={t(locale, 'openRecipe')}>
+                                   <span aria-hidden="true">↗</span>
+                                 </a>
+                               ) : null}
+                               <button className="primary-button icon-button" onClick={() => void handleMealSave(meal)} aria-label={t(locale, 'save')} title={t(locale, 'save')}>
+                                 <span aria-hidden="true">✓</span>
+                               </button>
                             </div>
 
                             {openSuggestionId === meal.id && (suggestions[meal.id]?.length ?? 0) > 0 ? (
@@ -411,10 +428,7 @@ function App() {
           <section className={activeTab === 'recipes' ? 'content-column' : 'content-column hidden'}>
             <article className="panel">
               <div className="panel-header">
-                <div>
-                  <h2>{t(locale, 'recipes')}</h2>
-                  <p>{t(locale, 'searchRecipes')}</p>
-                </div>
+                <h2>{t(locale, 'recipes')}</h2>
               </div>
 
               <div className="recipe-toolbar">
@@ -495,10 +509,7 @@ function App() {
           <section className={activeTab === 'history' ? 'content-column' : 'content-column hidden'}>
             <article className="panel">
               <div className="panel-header">
-                <div>
-                  <h2>{t(locale, 'history')}</h2>
-                  <p>{t(locale, 'weekOf')}</p>
-                </div>
+                <h2>{t(locale, 'history')}</h2>
               </div>
               <div className="history-list">
                 {weeks.length <= 1 ? <p>{t(locale, 'emptyHistory')}</p> : null}
@@ -515,16 +526,13 @@ function App() {
           <aside className="sidebar-column">
             <article className="panel shopping-panel">
               <div className="panel-header">
-                <div>
-                  <h2>{t(locale, 'shoppingList')}</h2>
-                  <p>{t(locale, 'shoppingHint')}</p>
-                </div>
+                <h2>{t(locale, 'shoppingList')}</h2>
               </div>
               <div className="shopping-entry-row">
                 <input value={shoppingDraft} placeholder={t(locale, 'addItem')} onChange={(event) => setShoppingDraft(event.target.value)} />
-                <button className="primary-button" onClick={() => void handleAddShoppingItem()}>
-                  {t(locale, 'add')}
-                </button>
+                 <button className="primary-button icon-button" onClick={() => void handleAddShoppingItem()} aria-label={t(locale, 'add')} title={t(locale, 'add')}>
+                   <span aria-hidden="true">+</span>
+                 </button>
               </div>
               <div className="shopping-list">
                 {week.shoppingList.items.map((item) => (

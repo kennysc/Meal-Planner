@@ -1,16 +1,16 @@
 .app-shell {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
   padding: 2rem;
 }
 
 .hero-card,
 .panel {
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
 }
 
@@ -18,42 +18,43 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  padding: 2rem;
-  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  align-items: center;
 }
 
-.eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.78rem;
-  color: #7c6f91;
+.hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.hero-subtitle {
-  max-width: 48rem;
-  color: #5b5367;
+.hero-title-row h1 {
+  font-size: 1.5rem;
+  line-height: 1.1;
 }
 
 .hero-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 
 .language-picker,
+.theme-toggle,
 .week-pill {
-  background: rgba(125, 76, 219, 0.08);
-  border: 1px solid rgba(125, 76, 219, 0.15);
-  border-radius: 16px;
-  padding: 0.8rem 1rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.65rem 0.9rem;
 }
 
 .language-picker {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .language-picker select,
@@ -79,9 +80,9 @@ textarea,
 .tab-button {
   border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.75);
-  color: #5b5367;
-  padding: 0.8rem 1.2rem;
+  background: var(--surface);
+  color: var(--text-secondary);
+  padding: 0.7rem 1.1rem;
   cursor: pointer;
 }
 
@@ -109,8 +110,12 @@ textarea,
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 1rem;
+}
+
+.panel-header h2 {
+  font-size: 1.1rem;
 }
 
 .planner-grid {
@@ -123,14 +128,14 @@ textarea,
 .planner-head,
 .planner-day {
   font-weight: 700;
-  color: #201530;
+  color: var(--text-primary);
   padding: 0.5rem 0.25rem;
 }
 
 .meal-card {
   position: relative;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(249, 245, 255, 0.94));
-  border: 1px solid rgba(163, 128, 255, 0.16);
+  background: linear-gradient(180deg, var(--surface-strong), var(--surface-soft));
+  border: 1px solid var(--border-strong);
   border-radius: 20px;
   padding: 1rem;
   display: grid;
@@ -143,10 +148,15 @@ textarea {
   width: 100%;
   box-sizing: border-box;
   border-radius: 14px;
-  border: 1px solid rgba(99, 84, 125, 0.14);
+  border: 1px solid var(--border);
   padding: 0.8rem 0.9rem;
-  background: rgba(255, 255, 255, 0.85);
-  color: #24183a;
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
 }
 
 textarea {
@@ -177,6 +187,18 @@ textarea {
   text-decoration: none;
 }
 
+.icon-button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem;
+  line-height: 1;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
 .primary-button {
   background: linear-gradient(135deg, #7c3aed, #4f46e5);
   color: white;
@@ -186,13 +208,13 @@ textarea {
 .link-button,
 .history-card,
 .suggestion-item {
-  background: rgba(124, 58, 237, 0.08);
-  color: #4f2f79;
+  background: var(--surface-muted);
+  color: var(--text-primary);
 }
 
 .ghost-button {
   background: transparent;
-  color: #7f6f97;
+  color: var(--text-muted);
   padding-inline: 0.4rem;
 }
 
@@ -201,10 +223,10 @@ textarea {
   left: 1rem;
   right: 1rem;
   top: 4.2rem;
-  background: white;
-  border: 1px solid rgba(99, 84, 125, 0.14);
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--shadow);
   display: grid;
   gap: 0.4rem;
   padding: 0.5rem;
@@ -228,10 +250,10 @@ textarea {
 .recipe-card,
 .history-card,
 .shopping-item {
-  border: 1px solid rgba(99, 84, 125, 0.12);
+  border: 1px solid var(--border);
   border-radius: 20px;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--surface-strong);
 }
 
 .recipe-list,
@@ -252,8 +274,8 @@ textarea {
 .badge {
   border-radius: 999px;
   padding: 0.25rem 0.7rem;
-  background: rgba(99, 84, 125, 0.08);
-  color: #56476c;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
 }
 
 .ingredient-list {
@@ -314,10 +336,10 @@ textarea {
 
 .modal-card {
   width: min(32rem, 100%);
-  background: white;
+  background: var(--surface-strong);
   border-radius: 24px;
   padding: 1.5rem;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+  box-shadow: var(--modal-shadow);
 }
 
 @media (max-width: 980px) {
@@ -329,6 +351,7 @@ textarea {
   .hero-card,
   .panel-header {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .sidebar-column {
@@ -343,6 +366,10 @@ textarea {
 @media (max-width: 640px) {
   .app-shell {
     padding: 1rem;
+  }
+
+  .hero-title-row {
+    align-items: flex-start;
   }
 
   .planner-grid {

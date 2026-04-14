@@ -1,16 +1,48 @@
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color: #2c2340;
-  background:
+  --text-primary: #2c2340;
+  --text-secondary: #5b5367;
+  --text-muted: #7c6f91;
+  --surface: rgba(255, 255, 255, 0.78);
+  --surface-strong: rgba(255, 255, 255, 0.92);
+  --surface-soft: rgba(249, 245, 255, 0.94);
+  --surface-muted: rgba(124, 58, 237, 0.08);
+  --surface-overlay: rgba(255, 255, 255, 0.85);
+  --border: rgba(99, 84, 125, 0.14);
+  --border-strong: rgba(163, 128, 255, 0.16);
+  --shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  --modal-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+  --page-background:
     radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 32%),
     radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 26%),
     linear-gradient(180deg, #f8f3ff 0%, #f3f8ff 100%);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text-primary);
+  background: var(--page-background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme='dark'] {
+  --text-primary: #f3efff;
+  --text-secondary: #c5b8df;
+  --text-muted: #aa9cc9;
+  --surface: rgba(17, 24, 39, 0.82);
+  --surface-strong: rgba(30, 41, 59, 0.9);
+  --surface-soft: rgba(22, 31, 48, 0.96);
+  --surface-muted: rgba(139, 92, 246, 0.18);
+  --surface-overlay: rgba(15, 23, 42, 0.92);
+  --border: rgba(148, 163, 184, 0.2);
+  --border-strong: rgba(139, 92, 246, 0.28);
+  --shadow: 0 24px 60px rgba(2, 6, 23, 0.45);
+  --modal-shadow: 0 24px 60px rgba(2, 6, 23, 0.6);
+  --page-background:
+    radial-gradient(circle at top left, rgba(124, 58, 237, 0.22), transparent 32%),
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.18), transparent 28%),
+    linear-gradient(180deg, #020617 0%, #111827 100%);
 }
 
 * {
@@ -21,6 +53,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  color: var(--text-primary);
+  background: var(--page-background);
+  transition: background 180ms ease, color 180ms ease;
 }
 
 button,
@@ -34,6 +69,10 @@ a {
   color: inherit;
 }
 
+button {
+  color: inherit;
+}
+
 #root {
   min-height: 100vh;
 }
@@ -43,4 +82,16 @@ h2,
 h3,
 p {
   margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

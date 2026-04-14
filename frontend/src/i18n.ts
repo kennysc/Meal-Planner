@@ -5,7 +5,6 @@ type Dictionary = Record<string, string>
 const dictionaries: Record<Locale, Dictionary> = {
   'fr-CA': {
     appTitle: 'Planificateur de repas',
-    appSubtitle: 'Organisez vos diners, vos soupers et votre epicerie sans perdre l historique des semaines precedentes.',
     planner: 'Planificateur',
     recipes: 'Recettes',
     history: 'Historique',
@@ -34,8 +33,6 @@ const dictionaries: Record<Locale, Dictionary> = {
     createRecipePrompt: 'Ce repas n existe pas encore comme recette. Voulez-vous creer une recette de base?',
     ingredientPrompt: 'Choisir les ingredients a ajouter a la liste d epicerie',
     confirmIngredients: 'Ajouter les ingredients selectionnes',
-    plannerHint: 'Cliquez dans une case pour saisir un repas, lier une recette ou ouvrir un lien.',
-    shoppingHint: 'Un seul endroit pour tout ce qu il faut acheter cette semaine.',
     emptyHistory: 'Aucune autre semaine n est encore disponible.',
     emptyRecipes: 'Aucune recette ne correspond aux filtres actuels.',
     language: 'Langue',
@@ -45,10 +42,11 @@ const dictionaries: Record<Locale, Dictionary> = {
     lastMade: 'Derniere fois',
     quickCreateRecipe: 'Creer une recette rapide',
     close: 'Fermer',
+    darkMode: 'Mode sombre',
+    lightMode: 'Mode clair',
   },
   'en-CA': {
     appTitle: 'Meal planner',
-    appSubtitle: 'Organize dinners, suppers, and your grocery list while keeping previous weeks close at hand.',
     planner: 'Planner',
     recipes: 'Recipes',
     history: 'History',
@@ -77,8 +75,6 @@ const dictionaries: Record<Locale, Dictionary> = {
     createRecipePrompt: 'This meal is not a saved recipe yet. Create a quick recipe draft?',
     ingredientPrompt: 'Choose which ingredients to add to the shopping list',
     confirmIngredients: 'Add selected ingredients',
-    plannerHint: 'Use each cell to plan a meal, link a recipe, or open a recipe website.',
-    shoppingHint: 'One place for everything you need to buy this week.',
     emptyHistory: 'No previous weeks are available yet.',
     emptyRecipes: 'No recipes match the current filters.',
     language: 'Language',
@@ -88,6 +84,8 @@ const dictionaries: Record<Locale, Dictionary> = {
     lastMade: 'Last made',
     quickCreateRecipe: 'Quick recipe draft',
     close: 'Close',
+    darkMode: 'Dark mode',
+    lightMode: 'Light mode',
   },
 }
 
