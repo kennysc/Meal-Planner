@@ -1,20 +1,32 @@
 :root {
-  --text-primary: #2c2340;
-  --text-secondary: #5b5367;
-  --text-muted: #7c6f91;
-  --surface: rgba(255, 255, 255, 0.78);
-  --surface-strong: rgba(255, 255, 255, 0.92);
-  --surface-soft: rgba(249, 245, 255, 0.94);
-  --surface-muted: rgba(124, 58, 237, 0.08);
-  --surface-overlay: rgba(255, 255, 255, 0.85);
-  --border: rgba(99, 84, 125, 0.14);
-  --border-strong: rgba(163, 128, 255, 0.16);
-  --shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
-  --modal-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
-  --page-background:
-    radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 32%),
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 26%),
-    linear-gradient(180deg, #f8f3ff 0%, #f3f8ff 100%);
+  /* ── User-overridable palette (light mode defaults) ── */
+  --color-1: #e8f0f3;
+  --color-2: #d0e2ea;
+  --color-3: #577B8D;
+  --color-4: #57A6A1;
+
+  /* ── Derived tokens ── */
+  --accent: var(--color-4);
+  --accent-text: #ffffff;
+
+  --text-primary: #1a2e38;
+  --text-secondary: #3d5a68;
+  --text-muted: #6a8a97;
+
+  --surface: #ffffff;
+  --surface-strong: #f7fafb;
+  --surface-soft: #eef4f6;
+  --surface-muted: color-mix(in srgb, var(--color-4) 12%, transparent);
+  --surface-overlay: #ffffff;
+
+  --border: color-mix(in srgb, var(--color-3) 22%, transparent);
+  --border-strong: color-mix(in srgb, var(--color-4) 32%, transparent);
+
+  --shadow: 0 4px 24px rgba(36, 7, 80, 0.07);
+  --modal-shadow: 0 8px 40px rgba(36, 7, 80, 0.15);
+
+  --page-background: var(--color-1);
+
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -27,22 +39,33 @@
 }
 
 :root[data-theme='dark'] {
-  --text-primary: #f3efff;
-  --text-secondary: #c5b8df;
-  --text-muted: #aa9cc9;
-  --surface: rgba(17, 24, 39, 0.82);
-  --surface-strong: rgba(30, 41, 59, 0.9);
-  --surface-soft: rgba(22, 31, 48, 0.96);
-  --surface-muted: rgba(139, 92, 246, 0.18);
-  --surface-overlay: rgba(15, 23, 42, 0.92);
-  --border: rgba(148, 163, 184, 0.2);
-  --border-strong: rgba(139, 92, 246, 0.28);
-  --shadow: 0 24px 60px rgba(2, 6, 23, 0.45);
-  --modal-shadow: 0 24px 60px rgba(2, 6, 23, 0.6);
-  --page-background:
-    radial-gradient(circle at top left, rgba(124, 58, 237, 0.22), transparent 32%),
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.18), transparent 28%),
-    linear-gradient(180deg, #020617 0%, #111827 100%);
+  /* ── User-overridable palette (dark mode defaults) ── */
+  --color-1: #240750;
+  --color-2: #344C64;
+  --color-3: #577B8D;
+  --color-4: #57A6A1;
+
+  /* ── Derived tokens ── */
+  --accent: var(--color-4);
+  --accent-text: #ffffff;
+
+  --text-primary: #e8f2f5;
+  --text-secondary: #9dbfcc;
+  --text-muted: #6a8a97;
+
+  --surface: color-mix(in srgb, var(--color-2) 80%, var(--color-1));
+  --surface-strong: color-mix(in srgb, var(--color-2) 60%, var(--color-1));
+  --surface-soft: color-mix(in srgb, var(--color-1) 85%, var(--color-2));
+  --surface-muted: color-mix(in srgb, var(--color-3) 25%, transparent);
+  --surface-overlay: color-mix(in srgb, var(--color-2) 70%, var(--color-1));
+
+  --border: color-mix(in srgb, var(--color-3) 35%, transparent);
+  --border-strong: color-mix(in srgb, var(--color-4) 45%, transparent);
+
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --modal-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+
+  --page-background: var(--color-1);
 }
 
 * {

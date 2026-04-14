@@ -30,6 +30,26 @@ function App() {
     if (typeof window === 'undefined') return 'light'
     return window.localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
   })
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  const DARK_DEFAULTS = { color1: '#240750', color2: '#344C64', color3: '#577B8D', color4: '#57A6A1' }
+  const LIGHT_DEFAULTS = { color1: '#e8f0f3', color2: '#d0e2ea', color3: '#577B8D', color4: '#57A6A1' }
+
+  const [darkColors, setDarkColors] = useState(() => ({
+    color1: window.localStorage.getItem('dark-color1') ?? DARK_DEFAULTS.color1,
+    color2: window.localStorage.getItem('dark-color2') ?? DARK_DEFAULTS.color2,
+    color3: window.localStorage.getItem('dark-color3') ?? DARK_DEFAULTS.color3,
+    color4: window.localStorage.getItem('dark-color4') ?? DARK_DEFAULTS.color4,
+  }))
+  const [lightColors, setLightColors] = useState(() => ({
+    color1: window.localStorage.getItem('light-color1') ?? LIGHT_DEFAULTS.color1,
+    color2: window.localStorage.getItem('light-color2') ?? LIGHT_DEFAULTS.color2,
+    color3: window.localStorage.getItem('light-color3') ?? LIGHT_DEFAULTS.color3,
+    color4: window.localStorage.getItem('light-color4') ?? LIGHT_DEFAULTS.color4,
+  }))
+  // Draft state for settings inputs (not applied until user edits)
+  const [colorDraft, setColorDraft] = useState({ color1: '', color2: '', color3: '', color4: '' })
+
   const [activeTab, setActiveTab] = useState<ActiveTab>('planner')
   const [week, setWeek] = useState<Week | null>(null)
   const [weeks, setWeeks] = useState<WeekSummary[]>([])
@@ -67,6 +87,50 @@ function App() {
     document.documentElement.dataset.theme = theme
     window.localStorage.setItem('theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    const colors = theme === 'dark' ? darkColors : lightColors
+    const root = document.documentElement
+    root.style.setProperty('--color-1', colors.color1)
+    root.style.setProperty('--color-2', colors.color2)
+    root.style.setProperty('--color-3', colors.color3)
+    root.style.setProperty('--color-4', colors.color4)
+  }, [theme, darkColors, lightColors])
+
+  function applyColorDraft() {
+    const isValidHex = (v: string) => /^#[0-9a-fA-F]{3,8}$/.test(v)
+    const prefix = theme === 'dark' ? 'dark' : 'light'
+    const current = theme === 'dark' ? darkColors : lightColors
+    const next = {
+      color1: isValidHex(colorDraft.color1) ? colorDraft.color1 : current.color1,
+      color2: isValidHex(colorDraft.color2) ? colorDraft.color2 : current.color2,
+      color3: isValidHex(colorDraft.color3) ? colorDraft.color3 : current.color3,
+      color4: isValidHex(colorDraft.color4) ? colorDraft.color4 : current.color4,
+    }
+    window.localStorage.setItem(`${prefix}-color1`, next.color1)
+    window.localStorage.setItem(`${prefix}-color2`, next.color2)
+    window.localStorage.setItem(`${prefix}-color3`, next.color3)
+    window.localStorage.setItem(`${prefix}-color4`, next.color4)
+    if (theme === 'dark') setDarkColors(next)
+    else setLightColors(next)
+  }
+
+  function resetColors() {
+    const prefix = theme === 'dark' ? 'dark' : 'light'
+    const defaults = theme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
+    ;(['color1', 'color2', 'color3', 'color4'] as const).forEach((k) => {
+      window.localStorage.removeItem(`${prefix}-${k}`)
+    })
+    if (theme === 'dark') setDarkColors({ ...defaults })
+    else setLightColors({ ...defaults })
+    setColorDraft({ color1: '', color2: '', color3: '', color4: '' })
+  }
+
+  function openSettings() {
+    const current = theme === 'dark' ? darkColors : lightColors
+    setColorDraft({ ...current })
+    setSettingsOpen(true)
+  }
 
   async function loadDashboard(nextLocale: Locale) {
     setLoading(true)
@@ -485,6 +549,14 @@ function App() {
           >
             {locale === 'fr-CA' ? 'FR' : 'EN'}
           </button>
+          <button
+            className="header-pill-button"
+            onClick={openSettings}
+            aria-label={t(locale, 'settings')}
+            title={t(locale, 'settings')}
+          >
+            ⚙
+          </button>
         </div>
       </header>
 
@@ -841,6 +913,66 @@ function App() {
                 {t(locale, 'close')}
               </button>
               <button className="primary-button" onClick={() => void handleMealEditorSave(editingMeal)}>
+                {t(locale, 'save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Modal: Settings ── */}
+      {settingsOpen ? (
+        <div className="modal-backdrop" onClick={() => { applyColorDraft(); setSettingsOpen(false) }}>
+          <div className="modal-card settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="panel-header">
+              <h3>{t(locale, 'settings')}</h3>
+              <button
+                className="secondary-button icon-button"
+                onClick={() => { applyColorDraft(); setSettingsOpen(false) }}
+                aria-label={t(locale, 'close')}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div className="settings-color-grid">
+              {(
+                [
+                  { key: 'color1', label: t(locale, 'colorBase') },
+                  { key: 'color2', label: t(locale, 'colorSurface') },
+                  { key: 'color3', label: t(locale, 'colorMuted') },
+                  { key: 'color4', label: t(locale, 'colorAccent') },
+                ] as const
+              ).map(({ key, label }) => (
+                <div key={key}>
+                  <div className="settings-color-row">
+                    <label htmlFor={`color-${key}`}>{label}</label>
+                    <div
+                      className="settings-color-swatch"
+                      style={{ background: colorDraft[key] || (theme === 'dark' ? darkColors[key] : lightColors[key]) }}
+                    />
+                  </div>
+                  <input
+                    id={`color-${key}`}
+                    type="text"
+                    value={colorDraft[key]}
+                    placeholder={theme === 'dark' ? darkColors[key] : lightColors[key]}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setColorDraft((prev) => ({ ...prev, [key]: val }))
+                      if (/^#[0-9a-fA-F]{3,8}$/.test(val)) {
+                        const cssVar = `--color-${key.replace('color', '')}`
+                        document.documentElement.style.setProperty(cssVar, val)
+                      }
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button className="secondary-button" onClick={resetColors}>
+                {t(locale, 'resetColors')}
+              </button>
+              <button className="primary-button" onClick={() => { applyColorDraft(); setSettingsOpen(false) }}>
                 {t(locale, 'save')}
               </button>
             </div>

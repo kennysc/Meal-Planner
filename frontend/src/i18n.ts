@@ -48,6 +48,12 @@ const dictionaries: Record<Locale, Dictionary> = {
     edit: 'Modifier',
     open: 'Ouvrir',
     openLinkConfirm: 'Voulez-vous ouvrir ce lien?',
+    settings: 'Parametres',
+    resetColors: 'Reinitialiser',
+    colorBase: 'Couleur de base',
+    colorSurface: 'Couleur surface',
+    colorMuted: 'Couleur attenuation',
+    colorAccent: 'Couleur accent',
   },
   'en-CA': {
     appTitle: 'Menu',
@@ -94,6 +100,12 @@ const dictionaries: Record<Locale, Dictionary> = {
     edit: 'Edit',
     open: 'Open',
     openLinkConfirm: 'Do you want to open this link?',
+    settings: 'Settings',
+    resetColors: 'Reset',
+    colorBase: 'Base color',
+    colorSurface: 'Surface color',
+    colorMuted: 'Muted color',
+    colorAccent: 'Accent color',
   },
 }
 
