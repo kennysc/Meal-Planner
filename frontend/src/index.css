@@ -1,31 +1,52 @@
+/* ── Catppuccin Latte (light) ────────────────────────────── */
 :root {
-  /* ── User-overridable palette (light mode defaults) ── */
-  --color-1: #e8f0f3;
-  --color-2: #d0e2ea;
-  --color-3: #577B8D;
-  --color-4: #57A6A1;
+  --ctp-rosewater: #dc8a78;
+  --ctp-flamingo:  #dd7878;
+  --ctp-pink:      #ea76cb;
+  --ctp-mauve:     #8839ef;
+  --ctp-red:       #d20f39;
+  --ctp-maroon:    #e64553;
+  --ctp-peach:     #fe640b;
+  --ctp-yellow:    #df8e1d;
+  --ctp-green:     #40a02b;
+  --ctp-teal:      #179299;
+  --ctp-sky:       #04a5e5;
+  --ctp-sapphire:  #209fb5;
+  --ctp-blue:      #1e66f5;
+  --ctp-lavender:  #7287fd;
+  --ctp-text:      #4c4f69;
+  --ctp-subtext1:  #5c5f77;
+  --ctp-subtext0:  #6c6f85;
+  --ctp-overlay2:  #7c7f93;
+  --ctp-overlay1:  #8c8fa1;
+  --ctp-overlay0:  #9ca0b0;
+  --ctp-surface2:  #acb0be;
+  --ctp-surface1:  #bcc0cc;
+  --ctp-surface0:  #ccd0da;
+  --ctp-base:      #eff1f5;
+  --ctp-mantle:    #e6e9ef;
+  --ctp-crust:     #dce0e8;
 
-  /* ── Derived tokens ── */
-  --accent: var(--color-4);
-  --accent-text: #ffffff;
+  /* ── Semantic tokens ── */
+  --accent:          var(--ctp-mauve);
+  --accent-text:     #ffffff;
 
-  --text-primary: #1a2e38;
-  --text-secondary: #3d5a68;
-  --text-muted: #6a8a97;
+  --text-primary:    var(--ctp-text);
+  --text-secondary:  var(--ctp-subtext1);
+  --text-muted:      var(--ctp-overlay1);
 
-  --surface: #ffffff;
-  --surface-strong: #f7fafb;
-  --surface-soft: #eef4f6;
-  --surface-muted: color-mix(in srgb, var(--color-4) 12%, transparent);
-  --surface-overlay: #ffffff;
+  --page-background: var(--ctp-base);
+  --surface:         var(--ctp-mantle);
+  --surface-strong:  #ffffff;
+  --surface-soft:    var(--ctp-crust);
+  --surface-muted:   color-mix(in srgb, var(--ctp-mauve) 10%, transparent);
+  --surface-overlay: var(--ctp-surface0);
 
-  --border: color-mix(in srgb, var(--color-3) 22%, transparent);
-  --border-strong: color-mix(in srgb, var(--color-4) 32%, transparent);
+  --border:          color-mix(in srgb, var(--ctp-overlay0) 40%, transparent);
+  --border-strong:   color-mix(in srgb, var(--ctp-mauve) 35%, transparent);
 
-  --shadow: 0 4px 24px rgba(36, 7, 80, 0.07);
-  --modal-shadow: 0 8px 40px rgba(36, 7, 80, 0.15);
-
-  --page-background: var(--color-1);
+  --shadow:          0 4px 24px rgba(76, 79, 105, 0.10);
+  --modal-shadow:    0 8px 40px rgba(76, 79, 105, 0.20);
 
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.5;
@@ -38,34 +59,55 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Catppuccin Mocha (dark) ─────────────────────────────── */
 :root[data-theme='dark'] {
-  /* ── User-overridable palette (dark mode defaults) ── */
-  --color-1: #240750;
-  --color-2: #344C64;
-  --color-3: #577B8D;
-  --color-4: #57A6A1;
+  --ctp-rosewater: #f5e0dc;
+  --ctp-flamingo:  #f2cdcd;
+  --ctp-pink:      #f5c2e7;
+  --ctp-mauve:     #cba6f7;
+  --ctp-red:       #f38ba8;
+  --ctp-maroon:    #eba0ac;
+  --ctp-peach:     #fab387;
+  --ctp-yellow:    #f9e2af;
+  --ctp-green:     #a6e3a1;
+  --ctp-teal:      #94e2d5;
+  --ctp-sky:       #89dceb;
+  --ctp-sapphire:  #74c7ec;
+  --ctp-blue:      #89b4fa;
+  --ctp-lavender:  #b4befe;
+  --ctp-text:      #cdd6f4;
+  --ctp-subtext1:  #bac2de;
+  --ctp-subtext0:  #a6adc8;
+  --ctp-overlay2:  #9399b2;
+  --ctp-overlay1:  #7f849c;
+  --ctp-overlay0:  #6c7086;
+  --ctp-surface2:  #585b70;
+  --ctp-surface1:  #45475a;
+  --ctp-surface0:  #313244;
+  --ctp-base:      #1e1e2e;
+  --ctp-mantle:    #181825;
+  --ctp-crust:     #11111b;
 
-  /* ── Derived tokens ── */
-  --accent: var(--color-4);
-  --accent-text: #ffffff;
+  /* ── Semantic tokens ── */
+  --accent:          var(--ctp-mauve);
+  --accent-text:     #1e1e2e;
 
-  --text-primary: #e8f2f5;
-  --text-secondary: #9dbfcc;
-  --text-muted: #6a8a97;
+  --text-primary:    var(--ctp-text);
+  --text-secondary:  var(--ctp-subtext1);
+  --text-muted:      var(--ctp-overlay1);
 
-  --surface: color-mix(in srgb, var(--color-2) 80%, var(--color-1));
-  --surface-strong: color-mix(in srgb, var(--color-2) 60%, var(--color-1));
-  --surface-soft: color-mix(in srgb, var(--color-1) 85%, var(--color-2));
-  --surface-muted: color-mix(in srgb, var(--color-3) 25%, transparent);
-  --surface-overlay: color-mix(in srgb, var(--color-2) 70%, var(--color-1));
+  --page-background: var(--ctp-base);
+  --surface:         var(--ctp-mantle);
+  --surface-strong:  var(--ctp-surface0);
+  --surface-soft:    var(--ctp-crust);
+  --surface-muted:   color-mix(in srgb, var(--ctp-mauve) 15%, transparent);
+  --surface-overlay: var(--ctp-surface0);
 
-  --border: color-mix(in srgb, var(--color-3) 35%, transparent);
-  --border-strong: color-mix(in srgb, var(--color-4) 45%, transparent);
+  --border:          color-mix(in srgb, var(--ctp-overlay0) 45%, transparent);
+  --border-strong:   color-mix(in srgb, var(--ctp-mauve) 40%, transparent);
 
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
-  --modal-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
-
-  --page-background: var(--color-1);
+  --shadow:          0 4px 24px rgba(0, 0, 0, 0.40);
+  --modal-shadow:    0 8px 40px rgba(0, 0, 0, 0.60);
 }
 
 * {

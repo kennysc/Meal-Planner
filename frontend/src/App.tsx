@@ -32,8 +32,10 @@ function App() {
   })
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  const DARK_DEFAULTS = { color1: '#240750', color2: '#344C64', color3: '#577B8D', color4: '#57A6A1' }
-  const LIGHT_DEFAULTS = { color1: '#e8f0f3', color2: '#d0e2ea', color3: '#577B8D', color4: '#57A6A1' }
+  // Catppuccin Mocha defaults (dark) / Latte defaults (light)
+  // color1=page-background, color2=surface, color3=surface-strong, color4=accent
+  const DARK_DEFAULTS  = { color1: '#1e1e2e', color2: '#181825', color3: '#313244', color4: '#cba6f7' }
+  const LIGHT_DEFAULTS = { color1: '#eff1f5', color2: '#e6e9ef', color3: '#ffffff',  color4: '#8839ef' }
 
   const [darkColors, setDarkColors] = useState(() => ({
     color1: window.localStorage.getItem('dark-color1') ?? DARK_DEFAULTS.color1,
@@ -91,10 +93,10 @@ function App() {
   useEffect(() => {
     const colors = theme === 'dark' ? darkColors : lightColors
     const root = document.documentElement
-    root.style.setProperty('--color-1', colors.color1)
-    root.style.setProperty('--color-2', colors.color2)
-    root.style.setProperty('--color-3', colors.color3)
-    root.style.setProperty('--color-4', colors.color4)
+    root.style.setProperty('--page-background', colors.color1)
+    root.style.setProperty('--surface', colors.color2)
+    root.style.setProperty('--surface-strong', colors.color3)
+    root.style.setProperty('--accent', colors.color4)
   }, [theme, darkColors, lightColors])
 
   function applyColorDraft() {
@@ -937,12 +939,12 @@ function App() {
             <div className="settings-color-grid">
               {(
                 [
-                  { key: 'color1', label: t(locale, 'colorBase') },
-                  { key: 'color2', label: t(locale, 'colorSurface') },
-                  { key: 'color3', label: t(locale, 'colorMuted') },
-                  { key: 'color4', label: t(locale, 'colorAccent') },
+                  { key: 'color1', cssVar: '--page-background', label: t(locale, 'colorBase') },
+                  { key: 'color2', cssVar: '--surface',         label: t(locale, 'colorSurface') },
+                  { key: 'color3', cssVar: '--surface-strong',  label: t(locale, 'colorMuted') },
+                  { key: 'color4', cssVar: '--accent',          label: t(locale, 'colorAccent') },
                 ] as const
-              ).map(({ key, label }) => (
+              ).map(({ key, cssVar, label }) => (
                 <div key={key}>
                   <div className="settings-color-row">
                     <label htmlFor={`color-${key}`}>{label}</label>
@@ -960,7 +962,6 @@ function App() {
                       const val = e.target.value
                       setColorDraft((prev) => ({ ...prev, [key]: val }))
                       if (/^#[0-9a-fA-F]{3,8}$/.test(val)) {
-                        const cssVar = `--color-${key.replace('color', '')}`
                         document.documentElement.style.setProperty(cssVar, val)
                       }
                     }}
