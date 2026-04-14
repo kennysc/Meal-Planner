@@ -19,45 +19,43 @@
 /* ── Header ─────────────────────────────────────────────── */
 .hero-card {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
   align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.75rem;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
-.hero-title-row {
+.hero-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hero-controls {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
-.hero-title-row h1 {
-  font-size: 1.5rem;
-  line-height: 1.1;
-}
-
-.hero-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.language-picker,
-.theme-toggle,
-.week-pill {
+.header-pill-button {
   background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0.65rem 0.9rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--text-primary);
+  transition: opacity 150ms ease;
 }
 
-.language-picker {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.header-pill-button:hover {
+  opacity: 0.8;
 }
 
 /* font normalisation */
@@ -78,18 +76,27 @@ textarea,
 /* ── Tab bars ───────────────────────────────────────────── */
 .tab-bar {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
-/* Desktop tab bar: always visible on desktop, hidden on mobile */
 .tab-bar-desktop {
   display: flex;
 }
 
-/* Mobile tab bar: hidden on desktop, shown on mobile */
 .tab-bar-mobile {
   display: none;
+}
+
+/* ── Week pill (non-interactive) ────────────────────────── */
+.week-pill {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .tab-button {
@@ -97,9 +104,14 @@ textarea,
   border-radius: 999px;
   background: var(--surface);
   color: var(--text-secondary);
-  padding: 0.7rem 1.1rem;
+  padding: 0.5rem 0.85rem;
   cursor: pointer;
   white-space: nowrap;
+  transition: opacity 150ms ease;
+}
+
+.tab-button:hover {
+  opacity: 0.8;
 }
 
 .tab-button.active {
@@ -195,6 +207,10 @@ textarea,
   gap: 0.75rem;
 }
 
+.meal-card-clickable {
+  cursor: pointer;
+}
+
 .meal-card-empty {
   min-height: 3.5rem;
   opacity: 0.35;
@@ -268,7 +284,7 @@ textarea {
 .shopping-entry-row .icon-button {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
-  min-width: 2.6rem;
+  min-width: 2rem;
   min-height: auto;
   align-self: stretch;
   flex-shrink: 0;
@@ -284,20 +300,34 @@ textarea {
 .suggestion-item {
   border: none;
   border-radius: 14px;
-  padding: 0.8rem 1rem;
+  padding: 0.5rem 0.8rem;
   text-decoration: none;
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+
+.primary-button:hover,
+.secondary-button:hover,
+.link-button:hover,
+.suggestion-item:hover {
+  opacity: 0.8;
 }
 
 .icon-button {
-  min-width: 2.75rem;
-  min-height: 2.75rem;
+  min-width: 1.875rem;
+  min-height: 1.875rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.65rem;
+  padding: 0.3rem;
   line-height: 1;
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   cursor: pointer;
+  transition: opacity 150ms ease;
+}
+
+.icon-button:hover {
+  opacity: 0.8;
 }
 
 .primary-button {
@@ -318,10 +348,18 @@ textarea {
   cursor: not-allowed;
 }
 
+.is-disabled:hover {
+  opacity: 0.45;
+}
+
 .ghost-button {
   background: transparent;
   color: var(--text-muted);
-  padding-inline: 0.4rem;
+  padding: 0.3rem;
+}
+
+.ghost-button:hover {
+  opacity: 0.8;
 }
 
 /* ── Suggestions ────────────────────────────────────────── */
@@ -364,8 +402,7 @@ textarea {
 
 .recipe-form,
 .recipe-card,
-.history-card,
-.shopping-item {
+.history-card {
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 1rem;
@@ -374,10 +411,17 @@ textarea {
 
 .recipe-list,
 .history-list,
-.shopping-list,
 .modal-list {
   display: grid;
   gap: 0.9rem;
+}
+
+.shopping-list {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface-strong);
+  overflow: hidden;
 }
 
 .chip-row {
@@ -402,12 +446,33 @@ textarea {
   gap: 0.5rem;
 }
 
-.ingredient-list li,
-.shopping-item {
+.ingredient-list li {
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
   align-items: center;
+}
+
+.shopping-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.shopping-item:last-child {
+  border-bottom: none;
+}
+
+.shopping-item.drag-over {
+  background: var(--surface-muted);
+}
+
+.shopping-item input[type='checkbox'] {
+  flex-shrink: 0;
+  width: auto;
 }
 
 .shopping-item.checked strong,
@@ -420,6 +485,7 @@ textarea {
   display: grid;
   gap: 0.1rem;
   flex: 1;
+  margin-left: 20px;
 }
 
 .history-card {
@@ -476,7 +542,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .hero-card,
   .panel-header {
     flex-direction: column;
     align-items: stretch;
@@ -503,41 +568,17 @@ textarea {
     gap: 0.75rem;
   }
 
-  /* Header: keep horizontal layout but allow wrap */
-  .hero-card {
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
-    padding: 0.85rem 1rem;
-  }
-
-  .hero-title-row {
-    align-items: center;
-  }
-
-  .hero-title-row h1 {
-    font-size: 1.15rem;
-  }
-
-  .week-pill {
-    font-size: 0.8rem;
-    padding: 0.4rem 0.75rem;
-  }
-
-  /* Swap tab bars */
+  /* Swap tab bars on mobile */
   .tab-bar-desktop {
     display: none;
   }
 
   .tab-bar-mobile {
     display: flex;
-    gap: 0.5rem;
     flex-wrap: nowrap;
     overflow-x: auto;
-    /* Prevent tab bar from growing the page width */
-    -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    padding-bottom: 2px; /* allow focus outline to show */
+    -webkit-overflow-scrolling: touch;
   }
 
   .tab-bar-mobile::-webkit-scrollbar {
@@ -546,8 +587,8 @@ textarea {
 
   .tab-bar-mobile .tab-button {
     flex-shrink: 0;
-    font-size: 0.85rem;
-    padding: 0.6rem 0.85rem;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.6rem;
   }
 
   /* Swap desktop/mobile content visibility */
@@ -595,7 +636,7 @@ textarea {
   }
 
   .shopping-entry-row .icon-button {
-    min-width: 2.5rem;
-    padding: 0.5rem;
+    min-width: 1.875rem;
+    padding: 0.3rem;
   }
 }

@@ -4,7 +4,7 @@ type Dictionary = Record<string, string>
 
 const dictionaries: Record<Locale, Dictionary> = {
   'fr-CA': {
-    appTitle: 'Planificateur de repas',
+    appTitle: 'Menu',
     planner: 'Planificateur',
     recipes: 'Recettes',
     history: 'Historique',
@@ -46,9 +46,11 @@ const dictionaries: Record<Locale, Dictionary> = {
     darkMode: 'Mode sombre',
     lightMode: 'Mode clair',
     edit: 'Modifier',
+    open: 'Ouvrir',
+    openLinkConfirm: 'Voulez-vous ouvrir ce lien?',
   },
   'en-CA': {
-    appTitle: 'Meal planner',
+    appTitle: 'Menu',
     planner: 'Planner',
     recipes: 'Recipes',
     history: 'History',
@@ -90,6 +92,8 @@ const dictionaries: Record<Locale, Dictionary> = {
     darkMode: 'Dark mode',
     lightMode: 'Light mode',
     edit: 'Edit',
+    open: 'Open',
+    openLinkConfirm: 'Do you want to open this link?',
   },
 }
 

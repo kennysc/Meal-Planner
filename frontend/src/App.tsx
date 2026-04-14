@@ -1,9 +1,8 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import './App.css'
 import {
   addRecipeIngredients,
   addShoppingItem,
-  copyPreviousWeek,
   createRecipe,
   deleteShoppingItem,
   fetchCurrentWeek,
@@ -14,7 +13,7 @@ import {
   updateMeal,
   updateShoppingItem,
 } from './api'
-import { dayLabel, mealLabel, statusLabel, t } from './i18n'
+import { dayLabel, mealLabel, t } from './i18n'
 import type { Locale, Meal, MealStatus, MealType, Recipe, ShoppingItem, Suggestion, Week, WeekSummary } from './types'
 
 // ── Desktop tabs ──────────────────────────────────────────────────────────────
@@ -43,6 +42,9 @@ function App() {
   const [editingMealId, setEditingMealId] = useState<string | null>(null)
   const [ingredientDialog, setIngredientDialog] = useState<{ mealId: string; recipe: Recipe } | null>(null)
   const [selectedIngredientIds, setSelectedIngredientIds] = useState<string[]>([])
+  const [linkConfirmMeal, setLinkConfirmMeal] = useState<Meal | null>(null)
+  const dragIndex = useRef<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [recipeSearch, setRecipeSearch] = useState('')
   const [tagSearch, setTagSearch] = useState('')
   const [ingredientSearch, setIngredientSearch] = useState('')
@@ -315,19 +317,6 @@ function App() {
     setActiveTab('planner')
   }
 
-  async function handleCopyPreviousWeek() {
-    if (!week) return
-    const response = await copyPreviousWeek(week.id)
-    setWeek((current) =>
-      current
-        ? {
-            ...current,
-            meals: response.week.meals,
-          }
-        : current,
-    )
-  }
-
   // Group meals by day for the desktop planner grid
   const groupedMeals = (week?.meals ?? []).reduce<Record<string, Meal[]>>((accumulator, meal) => {
     accumulator[meal.dayOfWeek] = [...(accumulator[meal.dayOfWeek] ?? []), meal]
@@ -343,41 +332,23 @@ function App() {
   const editingMeal = week?.meals.find((meal) => meal.id === editingMealId) ?? null
   const editingDraft = editingMeal ? mealState(editingMeal) : null
 
-  // ── Shared: single meal card ────────────────────────────────────────────────
-  function MealCard({ meal }: { meal: Meal }) {
+  // ── Render helpers (plain functions, not components — avoids remount on render) ──
+
+  function renderMealCard(meal: Meal) {
     const draft = mealState(meal)
     return (
-      <div className="meal-card">
+      <div
+        key={meal.id}
+        className={draft.recipeUrl ? 'meal-card meal-card-clickable' : 'meal-card'}
+        onClick={() => { if (draft.recipeUrl) setLinkConfirmMeal(meal) }}
+      >
         <div className="meal-summary">
           <strong>{draft.title?.trim() || t(locale, 'mealName')}</strong>
-          <span className="badge">{statusLabel(locale, draft.status ?? 'PLANNED')}</span>
         </div>
         <div className="meal-card-actions">
-          {draft.recipeUrl ? (
-            <a
-              className="link-button icon-button"
-              href={draft.recipeUrl}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={t(locale, 'openRecipe')}
-              title={t(locale, 'openRecipe')}
-            >
-              <span aria-hidden="true">↗</span>
-            </a>
-          ) : (
-            <button
-              className="link-button icon-button is-disabled"
-              type="button"
-              disabled
-              aria-label={t(locale, 'openRecipe')}
-              title={t(locale, 'openRecipe')}
-            >
-              <span aria-hidden="true">↗</span>
-            </button>
-          )}
           <button
             className="secondary-button icon-button"
-            onClick={() => openMealEditor(meal.id)}
+            onClick={(e) => { e.stopPropagation(); openMealEditor(meal.id) }}
             aria-label={t(locale, 'edit')}
             title={t(locale, 'edit')}
           >
@@ -388,8 +359,7 @@ function App() {
     )
   }
 
-  // ── Shared: mobile single-column planner for one meal type ─────────────────
-  function MobileMealColumn({ mealType }: { mealType: MealType }) {
+  function renderMobileMealColumn(mealType: MealType) {
     return (
       <div className="mobile-planner">
         {DAYS.map((day) => {
@@ -397,7 +367,7 @@ function App() {
           return (
             <div key={day} className="mobile-planner-row">
               <div className="planner-day">{dayLabel(locale, day)}</div>
-              {meal ? <MealCard meal={meal} /> : <div className="meal-card meal-card-empty" />}
+              {meal ? renderMealCard(meal) : <div className="meal-card meal-card-empty" />}
             </div>
           )
         })}
@@ -405,8 +375,31 @@ function App() {
     )
   }
 
-  // ── Shared: shopping list panel content ────────────────────────────────────
-  function ShoppingContent({ currentWeek }: { currentWeek: Week }) {
+  function handleShoppingDragStart(index: number) {
+    dragIndex.current = index
+  }
+
+  function handleShoppingDragOver(event: React.DragEvent, index: number) {
+    event.preventDefault()
+    setDragOverIndex(index)
+    const from = dragIndex.current
+    if (from === null || from === index) return
+    setWeek((current) => {
+      if (!current) return current
+      const items = [...current.shoppingList.items]
+      const [moved] = items.splice(from, 1)
+      items.splice(index, 0, moved)
+      dragIndex.current = index
+      return { ...current, shoppingList: { ...current.shoppingList, items } }
+    })
+  }
+
+  function handleShoppingDragEnd() {
+    dragIndex.current = null
+    setDragOverIndex(null)
+  }
+
+  function renderShoppingContent(currentWeek: Week) {
     return (
       <>
         <div className="shopping-entry-row">
@@ -425,20 +418,33 @@ function App() {
             <span aria-hidden="true">+</span>
           </button>
         </div>
-        <div className="shopping-list">
-          {currentWeek.shoppingList.items.map((item) => (
-            <label key={item.id} className={item.checked ? 'shopping-item checked' : 'shopping-item'}>
-              <input type="checkbox" checked={item.checked} onChange={() => void toggleShoppingItem(item)} />
-              <span className="shopping-copy">
-                <strong>{item.label}</strong>
-                {item.quantityText ? <small>{item.quantityText}</small> : null}
-              </span>
-              <button className="ghost-button" onClick={() => void removeShoppingItem(item.id)}>
-                ×
-              </button>
-            </label>
-          ))}
-        </div>
+        {currentWeek.shoppingList.items.length > 0 ? (
+          <div className="shopping-list">
+            {currentWeek.shoppingList.items.map((item, index) => (
+              <label
+                key={item.id}
+                className={[
+                  'shopping-item',
+                  item.checked ? 'checked' : '',
+                  dragOverIndex === index ? 'drag-over' : '',
+                ].filter(Boolean).join(' ')}
+                draggable
+                onDragStart={() => handleShoppingDragStart(index)}
+                onDragOver={(e) => handleShoppingDragOver(e, index)}
+                onDragEnd={handleShoppingDragEnd}
+              >
+                <input type="checkbox" checked={item.checked} onChange={() => void toggleShoppingItem(item)} />
+                <span className="shopping-copy">
+                  <strong>{item.label}</strong>
+                  {item.quantityText ? <small>{item.quantityText}</small> : null}
+                </span>
+                <button className="ghost-button" onClick={() => void removeShoppingItem(item.id)}>
+                  ×
+                </button>
+              </label>
+            ))}
+          </div>
+        ) : null}
       </>
     )
   }
@@ -461,26 +467,24 @@ function App() {
   return (
     <div className="app-shell">
       <header className="hero-card">
-        <div className="hero-title-row">
-          <h1>{t(locale, 'appTitle')}</h1>
-          <div className="week-pill">{week?.label}</div>
-        </div>
-        <div className="hero-actions">
+        <h1 className="hero-title">{t(locale, 'appTitle')}</h1>
+        {week?.label ? <span className="week-pill">{week.label}</span> : null}
+        <div className="hero-controls">
           <button
-            className="theme-toggle icon-button"
+            className="header-pill-button"
             onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))}
             aria-label={theme === 'light' ? t(locale, 'darkMode') : t(locale, 'lightMode')}
             title={theme === 'light' ? t(locale, 'darkMode') : t(locale, 'lightMode')}
           >
-            <span aria-hidden="true">{theme === 'light' ? '◐' : '○'}</span>
+            {theme === 'light' ? '◐' : '○'}
           </button>
-          <label className="language-picker">
-            <span className="sr-only">{t(locale, 'language')}</span>
-            <select value={locale} onChange={(event) => setLocale(event.target.value as Locale)}>
-              <option value="fr-CA">Francais</option>
-              <option value="en-CA">English</option>
-            </select>
-          </label>
+          <button
+            className="header-pill-button"
+            onClick={() => setLocale((current) => (current === 'fr-CA' ? 'en-CA' : 'fr-CA'))}
+            aria-label={t(locale, 'language')}
+          >
+            {locale === 'fr-CA' ? 'FR' : 'EN'}
+          </button>
         </div>
       </header>
 
@@ -550,14 +554,6 @@ function App() {
             <article className="panel planner-panel">
               <div className="panel-header">
                 <h2>{t(locale, 'planner')}</h2>
-                <button
-                  className="secondary-button icon-button"
-                  onClick={handleCopyPreviousWeek}
-                  aria-label={t(locale, 'copyPreviousWeek')}
-                  title={t(locale, 'copyPreviousWeek')}
-                >
-                  <span aria-hidden="true">↺</span>
-                </button>
               </div>
 
               <div className="planner-grid">
@@ -573,9 +569,7 @@ function App() {
                     <div className="planner-day">{dayLabel(locale, day)}</div>
                     {(groupedMeals[day] ?? [])
                       .sort((left, right) => left.mealType.localeCompare(right.mealType))
-                      .map((meal) => (
-                        <MealCard key={meal.id} meal={meal} />
-                      ))}
+                      .map((meal) => renderMealCard(meal))}
                   </Fragment>
                 ))}
               </div>
@@ -587,16 +581,8 @@ function App() {
             <article className="panel planner-panel">
               <div className="panel-header">
                 <h2>{mealLabel(locale, 'DINNER')}</h2>
-                <button
-                  className="secondary-button icon-button"
-                  onClick={handleCopyPreviousWeek}
-                  aria-label={t(locale, 'copyPreviousWeek')}
-                  title={t(locale, 'copyPreviousWeek')}
-                >
-                  <span aria-hidden="true">↺</span>
-                </button>
               </div>
-              <MobileMealColumn mealType="DINNER" />
+              {renderMobileMealColumn('DINNER')}
             </article>
           </section>
 
@@ -606,7 +592,7 @@ function App() {
               <div className="panel-header">
                 <h2>{mealLabel(locale, 'SUPPER')}</h2>
               </div>
-              <MobileMealColumn mealType="SUPPER" />
+              {renderMobileMealColumn('SUPPER')}
             </article>
           </section>
 
@@ -616,7 +602,7 @@ function App() {
               <div className="panel-header">
                 <h2>{t(locale, 'shoppingList')}</h2>
               </div>
-              <ShoppingContent currentWeek={week} />
+              {renderShoppingContent(week)}
             </article>
           </section>
 
@@ -784,7 +770,7 @@ function App() {
               <div className="panel-header">
                 <h2>{t(locale, 'shoppingList')}</h2>
               </div>
-              <ShoppingContent currentWeek={week} />
+              {renderShoppingContent(week)}
             </article>
           </aside>
         </main>
@@ -857,6 +843,30 @@ function App() {
               <button className="primary-button" onClick={() => void handleMealEditorSave(editingMeal)}>
                 {t(locale, 'save')}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Modal: Link confirm ── */}
+      {linkConfirmMeal ? (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <p>{t(locale, 'openLinkConfirm')}</p>
+            <p><strong>{linkConfirmMeal.title}</strong></p>
+            <div className="modal-actions">
+              <button className="secondary-button" onClick={() => setLinkConfirmMeal(null)}>
+                {t(locale, 'close')}
+              </button>
+              <a
+                className="primary-button"
+                href={linkConfirmMeal.recipeUrl ?? ''}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setLinkConfirmMeal(null)}
+              >
+                {t(locale, 'open')}
+              </a>
             </div>
           </div>
         </div>
