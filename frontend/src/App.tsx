@@ -394,9 +394,20 @@ function App() {
                               <strong>{draft.title?.trim() || t(locale, 'mealName')}</strong>
                               <span className="badge">{statusLabel(locale, draft.status ?? 'PLANNED')}</span>
                             </div>
-                            <button className="secondary-button icon-button" onClick={() => openMealEditor(meal.id)} aria-label={t(locale, 'edit')} title={t(locale, 'edit')}>
-                              <span aria-hidden="true">✎</span>
-                            </button>
+                            <div className="meal-card-actions">
+                              {draft.recipeUrl ? (
+                                <a className="link-button icon-button" href={draft.recipeUrl} target="_blank" rel="noreferrer" aria-label={t(locale, 'openRecipe')} title={t(locale, 'openRecipe')}>
+                                  <span aria-hidden="true">↗</span>
+                                </a>
+                              ) : (
+                                <button className="link-button icon-button is-disabled" type="button" disabled aria-label={t(locale, 'openRecipe')} title={t(locale, 'openRecipe')}>
+                                  <span aria-hidden="true">↗</span>
+                                </button>
+                              )}
+                              <button className="secondary-button icon-button" onClick={() => openMealEditor(meal.id)} aria-label={t(locale, 'edit')} title={t(locale, 'edit')}>
+                                <span aria-hidden="true">✎</span>
+                              </button>
+                            </div>
                           </div>
                         )
                       })}
@@ -550,13 +561,6 @@ function App() {
                 onFocus={() => setOpenSuggestionId(editingMeal.id)}
                 onChange={(event) => void handleMealFieldChange(editingMeal, 'title', event.target.value)}
               />
-              <select value={editingDraft.status ?? 'PLANNED'} onChange={(event) => void handleMealFieldChange(editingMeal, 'status', event.target.value as MealStatus)}>
-                {(['PLANNED', 'MADE', 'SKIPPED'] as const).map((status) => (
-                  <option key={status} value={status}>
-                    {statusLabel(locale, status)}
-                  </option>
-                ))}
-              </select>
               <input
                 value={editingDraft.recipeUrl ?? ''}
                 placeholder={t(locale, 'recipeUrl')}

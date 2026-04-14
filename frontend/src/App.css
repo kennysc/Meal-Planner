@@ -150,6 +150,12 @@ textarea,
   min-width: 0;
 }
 
+.meal-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .meal-summary strong {
   font-size: 0.98rem;
   overflow-wrap: anywhere;
@@ -190,9 +196,12 @@ textarea {
 
 .shopping-entry-row {
   gap: 0;
+  flex-wrap: nowrap;
 }
 
 .shopping-entry-row input {
+  flex: 1;
+  min-width: 0;
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
@@ -200,9 +209,11 @@ textarea {
 .shopping-entry-row .icon-button {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
-  min-width: 3rem;
-  min-height: 100%;
+  min-width: 2.6rem;
+  min-height: auto;
+  align-self: stretch;
   flex-shrink: 0;
+  aspect-ratio: 1;
 }
 
 .primary-button,
@@ -240,6 +251,11 @@ textarea {
 .suggestion-item {
   background: var(--surface-muted);
   color: var(--text-primary);
+}
+
+.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .ghost-button {
@@ -428,8 +444,8 @@ textarea {
   }
 
   .shopping-entry-row .icon-button {
-    min-width: 2.85rem;
-    padding: 0.55rem;
+    min-width: 2.5rem;
+    padding: 0.5rem;
   }
 
   .planner-grid {
