@@ -1,0 +1,351 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 2rem;
+}
+
+.hero-card,
+.panel {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.hero-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 2rem;
+  align-items: flex-start;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+  color: #7c6f91;
+}
+
+.hero-subtitle {
+  max-width: 48rem;
+  color: #5b5367;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.language-picker,
+.week-pill {
+  background: rgba(125, 76, 219, 0.08);
+  border: 1px solid rgba(125, 76, 219, 0.15);
+  border-radius: 16px;
+  padding: 0.8rem 1rem;
+}
+
+.language-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.language-picker select,
+.tab-button,
+.primary-button,
+.secondary-button,
+.ghost-button,
+input,
+select,
+textarea,
+.link-button,
+.history-card,
+.suggestion-item {
+  font: inherit;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  color: #5b5367;
+  padding: 0.8rem 1.2rem;
+  cursor: pointer;
+}
+
+.tab-button.active {
+  background: linear-gradient(135deg, #6b46c1, #9333ea);
+  color: white;
+}
+
+.main-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.content-column.hidden {
+  display: none;
+}
+
+.panel {
+  padding: 1.5rem;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.planner-grid {
+  display: grid;
+  grid-template-columns: 10rem repeat(2, minmax(16rem, 1fr));
+  gap: 1rem;
+  overflow-x: auto;
+}
+
+.planner-head,
+.planner-day {
+  font-weight: 700;
+  color: #201530;
+  padding: 0.5rem 0.25rem;
+}
+
+.meal-card {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(249, 245, 255, 0.94));
+  border: 1px solid rgba(163, 128, 255, 0.16);
+  border-radius: 20px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 84, 125, 0.14);
+  padding: 0.8rem 0.9rem;
+  background: rgba(255, 255, 255, 0.85);
+  color: #24183a;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.meal-actions,
+.shopping-entry-row,
+.modal-actions,
+.recipe-toolbar,
+.recipe-card-header,
+.recipe-metadata {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.primary-button,
+.secondary-button,
+.ghost-button,
+.link-button,
+.history-card,
+.suggestion-item {
+  border: none;
+  border-radius: 14px;
+  padding: 0.8rem 1rem;
+  text-decoration: none;
+}
+
+.primary-button {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  color: white;
+}
+
+.secondary-button,
+.link-button,
+.history-card,
+.suggestion-item {
+  background: rgba(124, 58, 237, 0.08);
+  color: #4f2f79;
+}
+
+.ghost-button {
+  background: transparent;
+  color: #7f6f97;
+  padding-inline: 0.4rem;
+}
+
+.suggestion-list {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  top: 4.2rem;
+  background: white;
+  border: 1px solid rgba(99, 84, 125, 0.14);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  z-index: 10;
+}
+
+.suggestion-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.recipe-layout {
+  display: grid;
+  grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.recipe-form,
+.recipe-card,
+.history-card,
+.shopping-item {
+  border: 1px solid rgba(99, 84, 125, 0.12);
+  border-radius: 20px;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.recipe-list,
+.history-list,
+.shopping-list,
+.modal-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.chip-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chip,
+.badge {
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  background: rgba(99, 84, 125, 0.08);
+  color: #56476c;
+}
+
+.ingredient-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ingredient-list li,
+.shopping-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.shopping-item.checked strong,
+.shopping-item.checked small {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.shopping-copy {
+  display: grid;
+  gap: 0.1rem;
+  flex: 1;
+}
+
+.history-card {
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-card.active {
+  border-color: rgba(124, 58, 237, 0.5);
+}
+
+.checkbox-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 18, 40, 0.4);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.modal-card {
+  width: min(32rem, 100%);
+  background: white;
+  border-radius: 24px;
+  padding: 1.5rem;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+}
+
+@media (max-width: 980px) {
+  .main-layout,
+  .recipe-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-card,
+  .panel-header {
+    flex-direction: column;
+  }
+
+  .sidebar-column {
+    order: 2;
+  }
+
+  .planner-grid {
+    grid-template-columns: 8rem repeat(2, minmax(15rem, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 1rem;
+  }
+
+  .planner-grid {
+    grid-template-columns: 7rem repeat(2, minmax(13rem, 1fr));
+  }
+}

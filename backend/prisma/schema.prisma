@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum MealType {
+  DINNER
+  SUPPER
+}
+
+enum MealStatus {
+  PLANNED
+  MADE
+  SKIPPED
+}
+
+enum ShoppingSection {
+  PRODUCE
+  MEAT
+  DAIRY
+  PANTRY
+  OTHER
+}
+
+model Week {
+  id           String         @id @default(cuid())
+  startDate    DateTime       @unique
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  mealEntries  MealEntry[]
+  shoppingList ShoppingList?
+}
+
+model MealEntry {
+  id          String      @id @default(cuid())
+  weekId      String
+  dayOfWeek   DayOfWeek
+  mealType    MealType
+  title       String      @default("")
+  notes       String      @default("")
+  status      MealStatus  @default(PLANNED)
+  recipeUrl   String?
+  recipeId    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  week        Week        @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  recipe      Recipe?     @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  shoppingItems ShoppingListItem[]
+
+  @@unique([weekId, dayOfWeek, mealType])
+}
+
+model Recipe {
+  id              String              @id @default(cuid())
+  name            String              @unique
+  url             String?
+  notes           String              @default("")
+  sortOrder       Int                 @default(0)
+  isFavorite      Boolean             @default(false)
+  isArchived      Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  mealEntries     MealEntry[]
+  recipeTags      RecipeTag[]
+  recipeIngredients RecipeIngredient[]
+  shoppingItems   ShoppingListItem[]
+}
+
+model Tag {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  createdAt  DateTime    @default(now())
+  recipeTags RecipeTag[]
+}
+
+model RecipeTag {
+  recipeId String
+  tagId    String
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, tagId])
+}
+
+model Ingredient {
+  id                String               @id @default(cuid())
+  name              String               @unique
+  createdAt         DateTime             @default(now())
+  recipeIngredients RecipeIngredient[]
+  shoppingItems     ShoppingListItem[]
+}
+
+model RecipeIngredient {
+  id            String     @id @default(cuid())
+  recipeId      String
+  ingredientId  String
+  quantityText  String     @default("")
+  sortOrder     Int        @default(0)
+  isPantryStaple Boolean   @default(false)
+  recipe        Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient    Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+}
+
+model ShoppingList {
+  id         String             @id @default(cuid())
+  weekId      String            @unique
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  week        Week              @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  items       ShoppingListItem[]
+}
+
+model ShoppingListItem {
+  id              String           @id @default(cuid())
+  shoppingListId  String
+  ingredientId    String?
+  label           String
+  quantityText    String?
+  checked         Boolean          @default(false)
+  section         ShoppingSection?
+  sourceRecipeId  String?
+  sourceMealEntryId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  shoppingList    ShoppingList     @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  ingredient      Ingredient?      @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  sourceRecipe    Recipe?          @relation(fields: [sourceRecipeId], references: [id], onDelete: SetNull)
+  sourceMealEntry MealEntry?       @relation(fields: [sourceMealEntryId], references: [id], onDelete: SetNull)
+}
