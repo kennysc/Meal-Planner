@@ -44,6 +44,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     close: 'Fermer',
     darkMode: 'Mode sombre',
     lightMode: 'Mode clair',
+    edit: 'Modifier',
   },
   'en-CA': {
     appTitle: 'Meal planner',
@@ -86,6 +87,7 @@ const dictionaries: Record<Locale, Dictionary> = {
     close: 'Close',
     darkMode: 'Dark mode',
     lightMode: 'Light mode',
+    edit: 'Edit',
   },
 }
 

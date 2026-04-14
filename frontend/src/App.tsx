@@ -31,6 +31,7 @@ function App() {
   const [mealDrafts, setMealDrafts] = useState<Record<string, Partial<Meal>>>({})
   const [suggestions, setSuggestions] = useState<Record<string, Suggestion[]>>({})
   const [openSuggestionId, setOpenSuggestionId] = useState<string | null>(null)
+  const [editingMealId, setEditingMealId] = useState<string | null>(null)
   const [ingredientDialog, setIngredientDialog] = useState<{ mealId: string; recipe: Recipe } | null>(null)
   const [selectedIngredientIds, setSelectedIngredientIds] = useState<string[]>([])
   const [recipeSearch, setRecipeSearch] = useState('')
@@ -125,6 +126,16 @@ function App() {
     setOpenSuggestionId(null)
   }
 
+  function openMealEditor(mealId: string) {
+    setEditingMealId(mealId)
+    setOpenSuggestionId(null)
+  }
+
+  function closeMealEditor() {
+    setEditingMealId(null)
+    setOpenSuggestionId(null)
+  }
+
   async function handleMealSave(meal: Meal) {
     if (!week) return
     const draft = mealState(meal)
@@ -187,6 +198,11 @@ function App() {
       setIngredientDialog({ mealId: updatedMeal.id, recipe: updatedMeal.recipe })
       setSelectedIngredientIds(updatedMeal.recipe.ingredients.filter((ingredient) => !ingredient.isPantryStaple).map((ingredient) => ingredient.ingredientId))
     }
+  }
+
+  async function handleMealEditorSave(meal: Meal) {
+    await handleMealSave(meal)
+    closeMealEditor()
   }
 
   async function handleConfirmIngredients() {
@@ -300,6 +316,9 @@ function App() {
     return accumulator
   }, {})
 
+  const editingMeal = week?.meals.find((meal) => meal.id === editingMealId) ?? null
+  const editingDraft = editingMeal ? mealState(editingMeal) : null
+
   return (
     <div className="app-shell">
       <header className="hero-card">
@@ -371,51 +390,13 @@ function App() {
                         const draft = mealState(meal)
                         return (
                           <div key={meal.id} className="meal-card">
-                            <input
-                              value={draft.title ?? ''}
-                              placeholder={t(locale, 'mealName')}
-                              onFocus={() => setOpenSuggestionId(meal.id)}
-                              onChange={(event) => void handleMealFieldChange(meal, 'title', event.target.value)}
-                            />
-                            <select value={draft.status ?? 'PLANNED'} onChange={(event) => void handleMealFieldChange(meal, 'status', event.target.value as MealStatus)}>
-                              {(['PLANNED', 'MADE', 'SKIPPED'] as const).map((status) => (
-                                <option key={status} value={status}>
-                                  {statusLabel(locale, status)}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              value={draft.recipeUrl ?? ''}
-                              placeholder={t(locale, 'recipeUrl')}
-                              onChange={(event) => void handleMealFieldChange(meal, 'recipeUrl', event.target.value)}
-                            />
-                            <textarea
-                              value={draft.notes ?? ''}
-                              placeholder={t(locale, 'notes')}
-                              rows={2}
-                              onChange={(event) => void handleMealFieldChange(meal, 'notes', event.target.value)}
-                            />
-                            <div className="meal-actions">
-                               {draft.recipeUrl ? (
-                                 <a className="link-button icon-button" href={draft.recipeUrl} target="_blank" rel="noreferrer" aria-label={t(locale, 'openRecipe')} title={t(locale, 'openRecipe')}>
-                                   <span aria-hidden="true">↗</span>
-                                 </a>
-                               ) : null}
-                               <button className="primary-button icon-button" onClick={() => void handleMealSave(meal)} aria-label={t(locale, 'save')} title={t(locale, 'save')}>
-                                 <span aria-hidden="true">✓</span>
-                               </button>
+                            <div className="meal-summary">
+                              <strong>{draft.title?.trim() || t(locale, 'mealName')}</strong>
+                              <span className="badge">{statusLabel(locale, draft.status ?? 'PLANNED')}</span>
                             </div>
-
-                            {openSuggestionId === meal.id && (suggestions[meal.id]?.length ?? 0) > 0 ? (
-                              <div className="suggestion-list">
-                                {suggestions[meal.id].map((suggestion) => (
-                                  <button key={suggestion.id} className="suggestion-item" onMouseDown={() => applySuggestion(meal, suggestion)}>
-                                    <strong>{suggestion.label}</strong>
-                                    <span>{suggestion.type === 'recipe' ? t(locale, 'recipes') : t(locale, 'history')}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            ) : null}
+                            <button className="secondary-button icon-button" onClick={() => openMealEditor(meal.id)} aria-label={t(locale, 'edit')} title={t(locale, 'edit')}>
+                              <span aria-hidden="true">✎</span>
+                            </button>
                           </div>
                         )
                       })}
@@ -552,6 +533,68 @@ function App() {
           </aside>
         </main>
       )}
+
+      {editingMeal && editingDraft ? (
+        <div className="modal-backdrop">
+          <div className="modal-card meal-editor-modal">
+            <div className="panel-header">
+              <h3>{t(locale, 'edit')}</h3>
+              <button className="secondary-button icon-button" onClick={closeMealEditor} aria-label={t(locale, 'close')} title={t(locale, 'close')}>
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div className="meal-editor-form">
+              <input
+                value={editingDraft.title ?? ''}
+                placeholder={t(locale, 'mealName')}
+                onFocus={() => setOpenSuggestionId(editingMeal.id)}
+                onChange={(event) => void handleMealFieldChange(editingMeal, 'title', event.target.value)}
+              />
+              <select value={editingDraft.status ?? 'PLANNED'} onChange={(event) => void handleMealFieldChange(editingMeal, 'status', event.target.value as MealStatus)}>
+                {(['PLANNED', 'MADE', 'SKIPPED'] as const).map((status) => (
+                  <option key={status} value={status}>
+                    {statusLabel(locale, status)}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={editingDraft.recipeUrl ?? ''}
+                placeholder={t(locale, 'recipeUrl')}
+                onChange={(event) => void handleMealFieldChange(editingMeal, 'recipeUrl', event.target.value)}
+              />
+              <textarea
+                value={editingDraft.notes ?? ''}
+                placeholder={t(locale, 'notes')}
+                rows={4}
+                onChange={(event) => void handleMealFieldChange(editingMeal, 'notes', event.target.value)}
+              />
+            </div>
+            {openSuggestionId === editingMeal.id && (suggestions[editingMeal.id]?.length ?? 0) > 0 ? (
+              <div className="suggestion-list suggestion-list-inline">
+                {suggestions[editingMeal.id].map((suggestion) => (
+                  <button key={suggestion.id} className="suggestion-item" onMouseDown={() => applySuggestion(editingMeal, suggestion)}>
+                    <strong>{suggestion.label}</strong>
+                    <span>{suggestion.type === 'recipe' ? t(locale, 'recipes') : t(locale, 'history')}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="modal-actions">
+              {editingDraft.recipeUrl ? (
+                <a className="link-button icon-button" href={editingDraft.recipeUrl} target="_blank" rel="noreferrer" aria-label={t(locale, 'openRecipe')} title={t(locale, 'openRecipe')}>
+                  <span aria-hidden="true">↗</span>
+                </a>
+              ) : null}
+              <button className="secondary-button" onClick={closeMealEditor}>
+                {t(locale, 'close')}
+              </button>
+              <button className="primary-button" onClick={() => void handleMealEditorSave(editingMeal)}>
+                {t(locale, 'save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {ingredientDialog ? (
         <div className="modal-backdrop">
