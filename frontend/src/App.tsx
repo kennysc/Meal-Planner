@@ -15,7 +15,15 @@ import {
   updateShoppingItem,
 } from './api'
 import { dayLabel, mealLabel, statusLabel, t } from './i18n'
-import type { Locale, Meal, MealStatus, Recipe, ShoppingItem, Suggestion, Week, WeekSummary } from './types'
+import type { Locale, Meal, MealStatus, MealType, Recipe, ShoppingItem, Suggestion, Week, WeekSummary } from './types'
+
+// ── Desktop tabs ──────────────────────────────────────────────────────────────
+type DesktopTab = 'planner' | 'recipes' | 'history'
+// ── Mobile tabs (planner split + shopping moved here) ────────────────────────
+type MobileTab = 'dinner' | 'supper' | 'shopping' | 'recipes' | 'history'
+type ActiveTab = DesktopTab | MobileTab
+
+const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const
 
 function App() {
   const [locale, setLocale] = useState<Locale>('fr-CA')
@@ -23,7 +31,7 @@ function App() {
     if (typeof window === 'undefined') return 'light'
     return window.localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
   })
-  const [activeTab, setActiveTab] = useState<'planner' | 'recipes' | 'history'>('planner')
+  const [activeTab, setActiveTab] = useState<ActiveTab>('planner')
   const [week, setWeek] = useState<Week | null>(null)
   const [weeks, setWeeks] = useState<WeekSummary[]>([])
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -200,7 +208,11 @@ function App() {
 
     if (updatedMeal.recipe && updatedMeal.recipe.ingredients.length > 0) {
       setIngredientDialog({ mealId: updatedMeal.id, recipe: updatedMeal.recipe })
-      setSelectedIngredientIds(updatedMeal.recipe.ingredients.filter((ingredient) => !ingredient.isPantryStaple).map((ingredient) => ingredient.ingredientId))
+      setSelectedIngredientIds(
+        updatedMeal.recipe.ingredients
+          .filter((ingredient) => !ingredient.isPantryStaple)
+          .map((ingredient) => ingredient.ingredientId),
+      )
     }
   }
 
@@ -299,6 +311,7 @@ function App() {
   async function handleWeekSelect(weekId: string) {
     const response = await fetchWeek(weekId, locale)
     setWeek(response.week)
+    // Go to planner on desktop, dinner on mobile — CSS handles which tab bar is shown
     setActiveTab('planner')
   }
 
@@ -315,13 +328,135 @@ function App() {
     )
   }
 
+  // Group meals by day for the desktop planner grid
   const groupedMeals = (week?.meals ?? []).reduce<Record<string, Meal[]>>((accumulator, meal) => {
     accumulator[meal.dayOfWeek] = [...(accumulator[meal.dayOfWeek] ?? []), meal]
     return accumulator
   }, {})
 
+  // Group meals by day+mealType for quick lookup in mobile columns
+  const mealByDayAndType = (week?.meals ?? []).reduce<Record<string, Meal>>((accumulator, meal) => {
+    accumulator[`${meal.dayOfWeek}:${meal.mealType}`] = meal
+    return accumulator
+  }, {})
+
   const editingMeal = week?.meals.find((meal) => meal.id === editingMealId) ?? null
   const editingDraft = editingMeal ? mealState(editingMeal) : null
+
+  // ── Shared: single meal card ────────────────────────────────────────────────
+  function MealCard({ meal }: { meal: Meal }) {
+    const draft = mealState(meal)
+    return (
+      <div className="meal-card">
+        <div className="meal-summary">
+          <strong>{draft.title?.trim() || t(locale, 'mealName')}</strong>
+          <span className="badge">{statusLabel(locale, draft.status ?? 'PLANNED')}</span>
+        </div>
+        <div className="meal-card-actions">
+          {draft.recipeUrl ? (
+            <a
+              className="link-button icon-button"
+              href={draft.recipeUrl}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={t(locale, 'openRecipe')}
+              title={t(locale, 'openRecipe')}
+            >
+              <span aria-hidden="true">↗</span>
+            </a>
+          ) : (
+            <button
+              className="link-button icon-button is-disabled"
+              type="button"
+              disabled
+              aria-label={t(locale, 'openRecipe')}
+              title={t(locale, 'openRecipe')}
+            >
+              <span aria-hidden="true">↗</span>
+            </button>
+          )}
+          <button
+            className="secondary-button icon-button"
+            onClick={() => openMealEditor(meal.id)}
+            aria-label={t(locale, 'edit')}
+            title={t(locale, 'edit')}
+          >
+            <span aria-hidden="true">✎</span>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Shared: mobile single-column planner for one meal type ─────────────────
+  function MobileMealColumn({ mealType }: { mealType: MealType }) {
+    return (
+      <div className="mobile-planner">
+        {DAYS.map((day) => {
+          const meal = mealByDayAndType[`${day}:${mealType}`]
+          return (
+            <div key={day} className="mobile-planner-row">
+              <div className="planner-day">{dayLabel(locale, day)}</div>
+              {meal ? <MealCard meal={meal} /> : <div className="meal-card meal-card-empty" />}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // ── Shared: shopping list panel content ────────────────────────────────────
+  function ShoppingContent({ currentWeek }: { currentWeek: Week }) {
+    return (
+      <>
+        <div className="shopping-entry-row">
+          <input
+            value={shoppingDraft}
+            placeholder={t(locale, 'addItem')}
+            onChange={(event) => setShoppingDraft(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') void handleAddShoppingItem() }}
+          />
+          <button
+            className="primary-button icon-button"
+            onClick={() => void handleAddShoppingItem()}
+            aria-label={t(locale, 'add')}
+            title={t(locale, 'add')}
+          >
+            <span aria-hidden="true">+</span>
+          </button>
+        </div>
+        <div className="shopping-list">
+          {currentWeek.shoppingList.items.map((item) => (
+            <label key={item.id} className={item.checked ? 'shopping-item checked' : 'shopping-item'}>
+              <input type="checkbox" checked={item.checked} onChange={() => void toggleShoppingItem(item)} />
+              <span className="shopping-copy">
+                <strong>{item.label}</strong>
+                {item.quantityText ? <small>{item.quantityText}</small> : null}
+              </span>
+              <button className="ghost-button" onClick={() => void removeShoppingItem(item.id)}>
+                ×
+              </button>
+            </label>
+          ))}
+        </div>
+      </>
+    )
+  }
+
+  // ── Tab helpers ────────────────────────────────────────────────────────────
+  // On mobile, 'planner' maps to 'dinner' so clicking history→planner on desktop
+  // then switching to mobile still shows a planner tab as active.
+  const mobilePlannerTabs: MobileTab[] = ['dinner', 'supper', 'shopping', 'recipes', 'history']
+  const desktopTabs: DesktopTab[] = ['planner', 'recipes', 'history']
+
+  // Determine which mobile tab is "active" when activeTab is a desktop-only value
+  function effectiveMobileTab(): MobileTab {
+    if (activeTab === 'planner') return 'dinner'
+    if ((mobilePlannerTabs as ActiveTab[]).includes(activeTab)) return activeTab as MobileTab
+    return 'dinner'
+  }
+
+  const currentMobileTab = effectiveMobileTab()
 
   return (
     <div className="app-shell">
@@ -349,23 +484,69 @@ function App() {
         </div>
       </header>
 
-      <nav className="tab-bar">
-        {(['planner', 'recipes', 'history'] as const).map((tab) => (
-          <button key={tab} className={activeTab === tab ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab(tab)}>
+      {/* ── Desktop tab bar (hidden on mobile via CSS) ── */}
+      <nav className="tab-bar tab-bar-desktop">
+        {desktopTabs.map((tab) => (
+          <button
+            key={tab}
+            className={activeTab === tab ? 'tab-button active' : 'tab-button'}
+            onClick={() => setActiveTab(tab)}
+          >
             {t(locale, tab)}
           </button>
         ))}
       </nav>
 
+      {/* ── Mobile tab bar (hidden on desktop via CSS) ── */}
+      <nav className="tab-bar tab-bar-mobile">
+        <button
+          className={currentMobileTab === 'dinner' ? 'tab-button active' : 'tab-button'}
+          onClick={() => setActiveTab('dinner')}
+        >
+          {mealLabel(locale, 'DINNER')}
+        </button>
+        <button
+          className={currentMobileTab === 'supper' ? 'tab-button active' : 'tab-button'}
+          onClick={() => setActiveTab('supper')}
+        >
+          {mealLabel(locale, 'SUPPER')}
+        </button>
+        <button
+          className={currentMobileTab === 'shopping' ? 'tab-button active' : 'tab-button'}
+          onClick={() => setActiveTab('shopping')}
+        >
+          {t(locale, 'shoppingList')}
+        </button>
+        <button
+          className={currentMobileTab === 'recipes' ? 'tab-button active' : 'tab-button'}
+          onClick={() => setActiveTab('recipes')}
+        >
+          {t(locale, 'recipes')}
+        </button>
+        <button
+          className={currentMobileTab === 'history' ? 'tab-button active' : 'tab-button'}
+          onClick={() => setActiveTab('history')}
+        >
+          {t(locale, 'history')}
+        </button>
+      </nav>
+
       {loading ? (
-        <section className="panel"><p>{t(locale, 'loading')}</p></section>
+        <section className="panel">
+          <p>{t(locale, 'loading')}</p>
+        </section>
       ) : loadError ? (
-        <section className="panel"><p>{loadError}</p></section>
+        <section className="panel">
+          <p>{loadError}</p>
+        </section>
       ) : !week ? (
-        <section className="panel"><p>{t(locale, 'loadFailed')}</p></section>
+        <section className="panel">
+          <p>{t(locale, 'loadFailed')}</p>
+        </section>
       ) : (
         <main className="main-layout">
-          <section className={activeTab === 'planner' ? 'content-column' : 'content-column hidden'}>
+          {/* ── Desktop planner (hidden on mobile) ── */}
+          <section className={activeTab === 'planner' ? 'content-column desktop-only' : 'content-column desktop-only hidden'}>
             <article className="panel planner-panel">
               <div className="panel-header">
                 <h2>{t(locale, 'planner')}</h2>
@@ -387,54 +568,87 @@ function App() {
                   </div>
                 ))}
 
-                {(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const).map((day) => (
+                {DAYS.map((day) => (
                   <Fragment key={day}>
-                    <div key={`${day}-label`} className="planner-day">
-                      {dayLabel(locale, day)}
-                    </div>
+                    <div className="planner-day">{dayLabel(locale, day)}</div>
                     {(groupedMeals[day] ?? [])
                       .sort((left, right) => left.mealType.localeCompare(right.mealType))
-                      .map((meal) => {
-                        const draft = mealState(meal)
-                        return (
-                          <div key={meal.id} className="meal-card">
-                            <div className="meal-summary">
-                              <strong>{draft.title?.trim() || t(locale, 'mealName')}</strong>
-                              <span className="badge">{statusLabel(locale, draft.status ?? 'PLANNED')}</span>
-                            </div>
-                            <div className="meal-card-actions">
-                              {draft.recipeUrl ? (
-                                <a className="link-button icon-button" href={draft.recipeUrl} target="_blank" rel="noreferrer" aria-label={t(locale, 'openRecipe')} title={t(locale, 'openRecipe')}>
-                                  <span aria-hidden="true">↗</span>
-                                </a>
-                              ) : (
-                                <button className="link-button icon-button is-disabled" type="button" disabled aria-label={t(locale, 'openRecipe')} title={t(locale, 'openRecipe')}>
-                                  <span aria-hidden="true">↗</span>
-                                </button>
-                              )}
-                              <button className="secondary-button icon-button" onClick={() => openMealEditor(meal.id)} aria-label={t(locale, 'edit')} title={t(locale, 'edit')}>
-                                <span aria-hidden="true">✎</span>
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })}
+                      .map((meal) => (
+                        <MealCard key={meal.id} meal={meal} />
+                      ))}
                   </Fragment>
                 ))}
               </div>
             </article>
           </section>
 
-          <section className={activeTab === 'recipes' ? 'content-column' : 'content-column hidden'}>
+          {/* ── Mobile: Dinner column (hidden on desktop) ── */}
+          <section className={currentMobileTab === 'dinner' ? 'content-column mobile-only' : 'content-column mobile-only hidden'}>
+            <article className="panel planner-panel">
+              <div className="panel-header">
+                <h2>{mealLabel(locale, 'DINNER')}</h2>
+                <button
+                  className="secondary-button icon-button"
+                  onClick={handleCopyPreviousWeek}
+                  aria-label={t(locale, 'copyPreviousWeek')}
+                  title={t(locale, 'copyPreviousWeek')}
+                >
+                  <span aria-hidden="true">↺</span>
+                </button>
+              </div>
+              <MobileMealColumn mealType="DINNER" />
+            </article>
+          </section>
+
+          {/* ── Mobile: Supper column (hidden on desktop) ── */}
+          <section className={currentMobileTab === 'supper' ? 'content-column mobile-only' : 'content-column mobile-only hidden'}>
+            <article className="panel planner-panel">
+              <div className="panel-header">
+                <h2>{mealLabel(locale, 'SUPPER')}</h2>
+              </div>
+              <MobileMealColumn mealType="SUPPER" />
+            </article>
+          </section>
+
+          {/* ── Mobile: Shopping tab (hidden on desktop) ── */}
+          <section className={currentMobileTab === 'shopping' ? 'content-column mobile-only' : 'content-column mobile-only hidden'}>
+            <article className="panel shopping-panel">
+              <div className="panel-header">
+                <h2>{t(locale, 'shoppingList')}</h2>
+              </div>
+              <ShoppingContent currentWeek={week} />
+            </article>
+          </section>
+
+          {/* ── Recipes tab (desktop + mobile) ── */}
+          <section
+            className={
+              activeTab === 'recipes' || currentMobileTab === 'recipes'
+                ? 'content-column'
+                : 'content-column hidden'
+            }
+          >
             <article className="panel">
               <div className="panel-header">
                 <h2>{t(locale, 'recipes')}</h2>
               </div>
 
               <div className="recipe-toolbar">
-                <input value={recipeSearch} placeholder={t(locale, 'searchRecipes')} onChange={(event) => setRecipeSearch(event.target.value)} />
-                <input value={tagSearch} placeholder={t(locale, 'searchTags')} onChange={(event) => setTagSearch(event.target.value)} />
-                <input value={ingredientSearch} placeholder={t(locale, 'searchIngredients')} onChange={(event) => setIngredientSearch(event.target.value)} />
+                <input
+                  value={recipeSearch}
+                  placeholder={t(locale, 'searchRecipes')}
+                  onChange={(event) => setRecipeSearch(event.target.value)}
+                />
+                <input
+                  value={tagSearch}
+                  placeholder={t(locale, 'searchTags')}
+                  onChange={(event) => setTagSearch(event.target.value)}
+                />
+                <input
+                  value={ingredientSearch}
+                  placeholder={t(locale, 'searchIngredients')}
+                  onChange={(event) => setIngredientSearch(event.target.value)}
+                />
                 <select value={ingredientMode} onChange={(event) => setIngredientMode(event.target.value as 'any' | 'all')}>
                   <option value="any">{t(locale, 'matchAny')}</option>
                   <option value="all">{t(locale, 'matchAll')}</option>
@@ -447,10 +661,27 @@ function App() {
               <div className="recipe-layout">
                 <div className="recipe-form">
                   <h3>{t(locale, 'addRecipe')}</h3>
-                  <input value={recipeForm.name} placeholder={t(locale, 'mealName')} onChange={(event) => setRecipeForm((current) => ({ ...current, name: event.target.value }))} />
-                  <input value={recipeForm.url} placeholder={t(locale, 'recipeUrl')} onChange={(event) => setRecipeForm((current) => ({ ...current, url: event.target.value }))} />
-                  <textarea value={recipeForm.notes} rows={3} placeholder={t(locale, 'notes')} onChange={(event) => setRecipeForm((current) => ({ ...current, notes: event.target.value }))} />
-                  <input value={recipeForm.tags} placeholder="Rapide, BBQ, Familial" onChange={(event) => setRecipeForm((current) => ({ ...current, tags: event.target.value }))} />
+                  <input
+                    value={recipeForm.name}
+                    placeholder={t(locale, 'mealName')}
+                    onChange={(event) => setRecipeForm((current) => ({ ...current, name: event.target.value }))}
+                  />
+                  <input
+                    value={recipeForm.url}
+                    placeholder={t(locale, 'recipeUrl')}
+                    onChange={(event) => setRecipeForm((current) => ({ ...current, url: event.target.value }))}
+                  />
+                  <textarea
+                    value={recipeForm.notes}
+                    rows={3}
+                    placeholder={t(locale, 'notes')}
+                    onChange={(event) => setRecipeForm((current) => ({ ...current, notes: event.target.value }))}
+                  />
+                  <input
+                    value={recipeForm.tags}
+                    placeholder="Rapide, BBQ, Familial"
+                    onChange={(event) => setRecipeForm((current) => ({ ...current, tags: event.target.value }))}
+                  />
                   <textarea
                     value={recipeForm.ingredients}
                     rows={5}
@@ -458,7 +689,11 @@ function App() {
                     onChange={(event) => setRecipeForm((current) => ({ ...current, ingredients: event.target.value }))}
                   />
                   <label className="checkbox-row">
-                    <input type="checkbox" checked={recipeForm.isFavorite} onChange={(event) => setRecipeForm((current) => ({ ...current, isFavorite: event.target.checked }))} />
+                    <input
+                      type="checkbox"
+                      checked={recipeForm.isFavorite}
+                      onChange={(event) => setRecipeForm((current) => ({ ...current, isFavorite: event.target.checked }))}
+                    />
                     <span>{t(locale, 'favorite')}</span>
                   </label>
                   <button className="primary-button" onClick={() => void handleCreateRecipe()}>
@@ -479,7 +714,9 @@ function App() {
                       </div>
                       <div className="chip-row">
                         {recipe.tags.map((tag) => (
-                          <span key={tag.id} className="chip">{tag.name}</span>
+                          <span key={tag.id} className="chip">
+                            {tag.name}
+                          </span>
                         ))}
                       </div>
                       <ul className="ingredient-list">
@@ -491,8 +728,15 @@ function App() {
                         ))}
                       </ul>
                       <div className="recipe-metadata">
-                        <span>{t(locale, 'usageCount')}: {recipe.usageCount ?? 0}</span>
-                        <span>{t(locale, 'lastMade')}: {recipe.lastMadeAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(recipe.lastMadeAt)) : '-'}</span>
+                        <span>
+                          {t(locale, 'usageCount')}: {recipe.usageCount ?? 0}
+                        </span>
+                        <span>
+                          {t(locale, 'lastMade')}:{' '}
+                          {recipe.lastMadeAt
+                            ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(recipe.lastMadeAt))
+                            : '-'}
+                        </span>
                         {recipe.url ? (
                           <a href={recipe.url} target="_blank" rel="noreferrer">
                             {t(locale, 'openRecipe')}
@@ -506,7 +750,14 @@ function App() {
             </article>
           </section>
 
-          <section className={activeTab === 'history' ? 'content-column' : 'content-column hidden'}>
+          {/* ── History tab (desktop + mobile) ── */}
+          <section
+            className={
+              activeTab === 'history' || currentMobileTab === 'history'
+                ? 'content-column'
+                : 'content-column hidden'
+            }
+          >
             <article className="panel">
               <div className="panel-header">
                 <h2>{t(locale, 'history')}</h2>
@@ -514,7 +765,11 @@ function App() {
               <div className="history-list">
                 {weeks.length <= 1 ? <p>{t(locale, 'emptyHistory')}</p> : null}
                 {weeks.map((item) => (
-                  <button key={item.id} className={item.id === week.id ? 'history-card active' : 'history-card'} onClick={() => void handleWeekSelect(item.id)}>
+                  <button
+                    key={item.id}
+                    className={item.id === week.id ? 'history-card active' : 'history-card'}
+                    onClick={() => void handleWeekSelect(item.id)}
+                  >
                     <strong>{item.label}</strong>
                     <span>{item.highlights.join(' • ') || t(locale, 'planner')}</span>
                   </button>
@@ -523,42 +778,30 @@ function App() {
             </article>
           </section>
 
+          {/* ── Desktop sidebar: shopping list (hidden on mobile) ── */}
           <aside className="sidebar-column">
             <article className="panel shopping-panel">
               <div className="panel-header">
                 <h2>{t(locale, 'shoppingList')}</h2>
               </div>
-              <div className="shopping-entry-row">
-                <input value={shoppingDraft} placeholder={t(locale, 'addItem')} onChange={(event) => setShoppingDraft(event.target.value)} />
-                 <button className="primary-button icon-button" onClick={() => void handleAddShoppingItem()} aria-label={t(locale, 'add')} title={t(locale, 'add')}>
-                   <span aria-hidden="true">+</span>
-                 </button>
-              </div>
-              <div className="shopping-list">
-                {week.shoppingList.items.map((item) => (
-                  <label key={item.id} className={item.checked ? 'shopping-item checked' : 'shopping-item'}>
-                    <input type="checkbox" checked={item.checked} onChange={() => void toggleShoppingItem(item)} />
-                    <span className="shopping-copy">
-                      <strong>{item.label}</strong>
-                      {item.quantityText ? <small>{item.quantityText}</small> : null}
-                    </span>
-                    <button className="ghost-button" onClick={() => void removeShoppingItem(item.id)}>
-                      ×
-                    </button>
-                  </label>
-                ))}
-              </div>
+              <ShoppingContent currentWeek={week} />
             </article>
           </aside>
         </main>
       )}
 
+      {/* ── Modal: Meal editor ── */}
       {editingMeal && editingDraft ? (
         <div className="modal-backdrop">
           <div className="modal-card meal-editor-modal">
             <div className="panel-header">
               <h3>{t(locale, 'edit')}</h3>
-              <button className="secondary-button icon-button" onClick={closeMealEditor} aria-label={t(locale, 'close')} title={t(locale, 'close')}>
+              <button
+                className="secondary-button icon-button"
+                onClick={closeMealEditor}
+                aria-label={t(locale, 'close')}
+                title={t(locale, 'close')}
+              >
                 <span aria-hidden="true">×</span>
               </button>
             </div>
@@ -584,7 +827,11 @@ function App() {
             {openSuggestionId === editingMeal.id && (suggestions[editingMeal.id]?.length ?? 0) > 0 ? (
               <div className="suggestion-list suggestion-list-inline">
                 {suggestions[editingMeal.id].map((suggestion) => (
-                  <button key={suggestion.id} className="suggestion-item" onMouseDown={() => applySuggestion(editingMeal, suggestion)}>
+                  <button
+                    key={suggestion.id}
+                    className="suggestion-item"
+                    onMouseDown={() => applySuggestion(editingMeal, suggestion)}
+                  >
                     <strong>{suggestion.label}</strong>
                     <span>{suggestion.type === 'recipe' ? t(locale, 'recipes') : t(locale, 'history')}</span>
                   </button>
@@ -593,7 +840,14 @@ function App() {
             ) : null}
             <div className="modal-actions">
               {editingDraft.recipeUrl ? (
-                <a className="link-button icon-button" href={editingDraft.recipeUrl} target="_blank" rel="noreferrer" aria-label={t(locale, 'openRecipe')} title={t(locale, 'openRecipe')}>
+                <a
+                  className="link-button icon-button"
+                  href={editingDraft.recipeUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={t(locale, 'openRecipe')}
+                  title={t(locale, 'openRecipe')}
+                >
                   <span aria-hidden="true">↗</span>
                 </a>
               ) : null}
@@ -608,6 +862,7 @@ function App() {
         </div>
       ) : null}
 
+      {/* ── Modal: Ingredient picker ── */}
       {ingredientDialog ? (
         <div className="modal-backdrop">
           <div className="modal-card">

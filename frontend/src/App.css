@@ -1,3 +1,4 @@
+/* ── Shell ──────────────────────────────────────────────── */
 .app-shell {
   display: flex;
   flex-direction: column;
@@ -5,6 +6,7 @@
   padding: 2rem;
 }
 
+/* ── Surfaces ───────────────────────────────────────────── */
 .hero-card,
 .panel {
   background: var(--surface);
@@ -14,6 +16,7 @@
   backdrop-filter: blur(18px);
 }
 
+/* ── Header ─────────────────────────────────────────────── */
 .hero-card {
   display: flex;
   justify-content: space-between;
@@ -57,6 +60,7 @@
   gap: 0.5rem;
 }
 
+/* font normalisation */
 .language-picker select,
 .tab-button,
 .primary-button,
@@ -71,10 +75,21 @@ textarea,
   font: inherit;
 }
 
+/* ── Tab bars ───────────────────────────────────────────── */
 .tab-bar {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+/* Desktop tab bar: always visible on desktop, hidden on mobile */
+.tab-bar-desktop {
+  display: flex;
+}
+
+/* Mobile tab bar: hidden on desktop, shown on mobile */
+.tab-bar-mobile {
+  display: none;
 }
 
 .tab-button {
@@ -84,6 +99,7 @@ textarea,
   color: var(--text-secondary);
   padding: 0.7rem 1.1rem;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .tab-button.active {
@@ -91,6 +107,17 @@ textarea,
   color: white;
 }
 
+/* ── Visibility helpers ─────────────────────────────────── */
+/* desktop-only: visible on desktop, hidden on mobile */
+.desktop-only {
+  display: block;
+}
+/* mobile-only: hidden on desktop, visible on mobile */
+.mobile-only {
+  display: none;
+}
+
+/* ── Main layout ────────────────────────────────────────── */
 .main-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 22rem;
@@ -99,9 +126,10 @@ textarea,
 }
 
 .content-column.hidden {
-  display: none;
+  display: none !important;
 }
 
+/* ── Panel ──────────────────────────────────────────────── */
 .panel {
   padding: 1.5rem;
 }
@@ -118,6 +146,7 @@ textarea,
   font-size: 1.1rem;
 }
 
+/* ── Desktop planner grid ───────────────────────────────── */
 .planner-grid {
   display: grid;
   grid-template-columns: 10rem repeat(2, minmax(16rem, 1fr));
@@ -132,6 +161,28 @@ textarea,
   padding: 0.5rem 0.25rem;
 }
 
+/* ── Mobile planner: one column per meal type ───────────── */
+.mobile-planner {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mobile-planner-row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Day label inside mobile rows — vertically centred, compact */
+.mobile-planner-row .planner-day {
+  font-size: 0.9rem;
+  padding: 0;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+/* ── Meal card ──────────────────────────────────────────── */
 .meal-card {
   position: relative;
   background: linear-gradient(180deg, var(--surface-strong), var(--surface-soft));
@@ -144,10 +195,16 @@ textarea,
   gap: 0.75rem;
 }
 
+.meal-card-empty {
+  min-height: 3.5rem;
+  opacity: 0.35;
+}
+
 .meal-summary {
   display: grid;
   gap: 0.45rem;
   min-width: 0;
+  flex: 1;
 }
 
 .meal-card-actions {
@@ -161,6 +218,7 @@ textarea,
   overflow-wrap: anywhere;
 }
 
+/* ── Inputs ─────────────────────────────────────────────── */
 input,
 select,
 textarea {
@@ -182,6 +240,7 @@ textarea {
   resize: vertical;
 }
 
+/* ── Flex rows ──────────────────────────────────────────── */
 .meal-actions,
 .shopping-entry-row,
 .modal-actions,
@@ -216,6 +275,7 @@ textarea {
   aspect-ratio: 1;
 }
 
+/* ── Buttons ────────────────────────────────────────────── */
 .primary-button,
 .secondary-button,
 .ghost-button,
@@ -264,6 +324,7 @@ textarea {
   padding-inline: 0.4rem;
 }
 
+/* ── Suggestions ────────────────────────────────────────── */
 .suggestion-list {
   position: absolute;
   left: 1rem;
@@ -294,6 +355,7 @@ textarea {
   cursor: pointer;
 }
 
+/* ── Recipe layout ──────────────────────────────────────── */
 .recipe-layout {
   display: grid;
   grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
@@ -379,6 +441,7 @@ textarea {
   width: auto;
 }
 
+/* ── Modals ─────────────────────────────────────────────── */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -386,6 +449,7 @@ textarea {
   display: grid;
   place-items: center;
   padding: 1rem;
+  z-index: 100;
 }
 
 .modal-card {
@@ -405,6 +469,7 @@ textarea {
   gap: 0.75rem;
 }
 
+/* ── Responsive: tablet (≤ 980px) ───────────────────────── */
 @media (max-width: 980px) {
   .main-layout,
   .recipe-layout {
@@ -417,6 +482,7 @@ textarea {
     align-items: stretch;
   }
 
+  /* Sidebar drops below content on tablet */
   .sidebar-column {
     order: 2;
   }
@@ -430,13 +496,98 @@ textarea {
   }
 }
 
+/* ── Responsive: mobile (≤ 640px) ───────────────────────── */
 @media (max-width: 640px) {
   .app-shell {
     padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  /* Header: keep horizontal layout but allow wrap */
+  .hero-card {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0.85rem 1rem;
   }
 
   .hero-title-row {
-    align-items: flex-start;
+    align-items: center;
+  }
+
+  .hero-title-row h1 {
+    font-size: 1.15rem;
+  }
+
+  .week-pill {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  /* Swap tab bars */
+  .tab-bar-desktop {
+    display: none;
+  }
+
+  .tab-bar-mobile {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    /* Prevent tab bar from growing the page width */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px; /* allow focus outline to show */
+  }
+
+  .tab-bar-mobile::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-bar-mobile .tab-button {
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.85rem;
+  }
+
+  /* Swap desktop/mobile content visibility */
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  /* Single-column main layout — no sidebar column */
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* Hide the desktop sidebar entirely on mobile */
+  .sidebar-column {
+    display: none !important;
+  }
+
+  /* Panel header stays horizontal on mobile */
+  .panel-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  /* Tighter panel padding */
+  .panel {
+    padding: 1rem;
+  }
+
+  /* Meal card: align items to center on mobile */
+  .meal-card {
+    align-items: center;
+  }
+
+  /* Recipe layout: single column */
+  .recipe-layout {
+    grid-template-columns: 1fr;
   }
 
   .shopping-entry-row input {
@@ -446,9 +597,5 @@ textarea {
   .shopping-entry-row .icon-button {
     min-width: 2.5rem;
     padding: 0.5rem;
-  }
-
-  .planner-grid {
-    grid-template-columns: 7rem repeat(2, minmax(13rem, 1fr));
   }
 }
