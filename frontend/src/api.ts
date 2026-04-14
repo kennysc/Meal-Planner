@@ -1,6 +1,6 @@
 import type { Locale, Meal, Recipe, ShoppingItem, Suggestion, Week, WeekSummary } from './types'
 
-const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
+const apiBase = import.meta.env.VITE_API_URL ?? ''
 
 async function request<T>(path: string, init?: RequestInit) {
   const response = await fetch(`${apiBase}${path}`, {

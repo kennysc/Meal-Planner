@@ -28,6 +28,7 @@ function App() {
   const [weeks, setWeeks] = useState<WeekSummary[]>([])
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [mealDrafts, setMealDrafts] = useState<Record<string, Partial<Meal>>>({})
   const [suggestions, setSuggestions] = useState<Record<string, Suggestion[]>>({})
   const [openSuggestionId, setOpenSuggestionId] = useState<string | null>(null)
@@ -59,6 +60,7 @@ function App() {
 
   async function loadDashboard(nextLocale: Locale) {
     setLoading(true)
+    setLoadError(null)
     try {
       const [weekResponse, weeksResponse, recipesResponse] = await Promise.all([
         fetchCurrentWeek(nextLocale),
@@ -71,6 +73,8 @@ function App() {
       setRecipes(recipesResponse.recipes)
       setMealDrafts({})
       setSuggestions({})
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Failed to load app')
     } finally {
       setLoading(false)
     }
@@ -353,8 +357,12 @@ function App() {
         ))}
       </nav>
 
-      {loading || !week ? (
+      {loading ? (
         <section className="panel"><p>{t(locale, 'loading')}</p></section>
+      ) : loadError ? (
+        <section className="panel"><p>{loadError}</p></section>
+      ) : !week ? (
+        <section className="panel"><p>{t(locale, 'loadFailed')}</p></section>
       ) : (
         <main className="main-layout">
           <section className={activeTab === 'planner' ? 'content-column' : 'content-column hidden'}>
