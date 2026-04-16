@@ -4,6 +4,7 @@ import {
   addRecipeIngredients,
   addShoppingItem,
   createRecipe,
+  createWeek,
   deleteShoppingItem,
   fetchCurrentWeek,
   fetchRecipes,
@@ -11,46 +12,135 @@ import {
   fetchWeek,
   fetchWeeks,
   updateMeal,
+  updateRecipe,
   updateShoppingItem,
 } from './api'
 import { dayLabel, mealLabel, t } from './i18n'
-import type { Locale, Meal, MealStatus, MealType, Recipe, ShoppingItem, Suggestion, Week, WeekSummary } from './types'
+import type { Locale, Meal, MealType, Recipe, ShoppingItem, Suggestion, Week, WeekSummary } from './types'
 
-// ── Desktop tabs ──────────────────────────────────────────────────────────────
 type DesktopTab = 'planner' | 'recipes' | 'history'
-// ── Mobile tabs (planner split + shopping moved here) ────────────────────────
 type MobileTab = 'dinner' | 'supper' | 'shopping' | 'recipes' | 'history'
 type ActiveTab = DesktopTab | MobileTab
+type Theme = 'light' | 'dark'
+type AccentName = (typeof CATPPUCCIN_ACCENTS)[number]
+type RecipeDraft = {
+  name: string
+  url: string
+  notes: string
+  tags: string
+  ingredients: string
+  isFavorite: boolean
+}
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const
+const CATPPUCCIN_ACCENTS = [
+  'rosewater',
+  'flamingo',
+  'pink',
+  'mauve',
+  'red',
+  'maroon',
+  'peach',
+  'yellow',
+  'green',
+  'teal',
+  'sky',
+  'sapphire',
+  'blue',
+  'lavender',
+] as const
+const DEFAULT_ACCENT: Record<Theme, AccentName> = { light: 'mauve', dark: 'mauve' }
+const EMPTY_RECIPE_DRAFT: RecipeDraft = { name: '', url: '', notes: '', tags: '', ingredients: '', isFavorite: false }
+
+function getStoredAccent(theme: Theme) {
+  if (typeof window === 'undefined') return DEFAULT_ACCENT[theme]
+  const stored = window.localStorage.getItem(`${theme}-accent`)
+  return CATPPUCCIN_ACCENTS.includes(stored as AccentName) ? (stored as AccentName) : DEFAULT_ACCENT[theme]
+}
+
+function splitList(value: string) {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function recipeToDraft(recipe: Recipe): RecipeDraft {
+  return {
+    name: recipe.name,
+    url: recipe.url ?? '',
+    notes: recipe.notes,
+    tags: recipe.tags.map((tag) => tag.name).join(', '),
+    ingredients: recipe.ingredients
+      .map((ingredient) => [ingredient.name, ingredient.quantityText, ingredient.isPantryStaple ? 'pantry' : ''].filter(Boolean).join('|'))
+      .join('\n'),
+    isFavorite: recipe.isFavorite,
+  }
+}
+
+function emptyRecipeDraftWithName(name: string): RecipeDraft {
+  return { ...EMPTY_RECIPE_DRAFT, name }
+}
+
+function parseRecipeDraft(draft: RecipeDraft) {
+  return {
+    name: draft.name.trim(),
+    url: draft.url.trim(),
+    notes: draft.notes.trim(),
+    isFavorite: draft.isFavorite,
+    tags: splitList(draft.tags),
+    ingredients: draft.ingredients
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [name = '', quantityText = '', pantryFlag = ''] = line.split('|').map((part) => part?.trim() ?? '')
+        return {
+          name,
+          quantityText: quantityText || undefined,
+          isPantryStaple: ['pantry', 'garde-manger', 'true', 'yes', 'oui'].includes(pantryFlag.toLowerCase()),
+        }
+      }),
+  }
+}
+
+function sameDate(left: Date, right: Date) {
+  return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate()
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+function buildCalendarDays(month: Date) {
+  const firstDay = startOfMonth(month)
+  const offset = (firstDay.getDay() + 6) % 7
+  const start = new Date(firstDay)
+  start.setDate(firstDay.getDate() - offset)
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(start)
+    day.setDate(start.getDate() + index)
+    return day
+  })
+}
+
+function toDateString(date: Date) {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 function App() {
   const [locale, setLocale] = useState<Locale>('fr-CA')
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+  const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'light'
     return window.localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
   })
   const [settingsOpen, setSettingsOpen] = useState(false)
-
-  // Catppuccin Mocha defaults (dark) / Latte defaults (light)
-  // color1=page-background, color2=surface, color3=surface-strong, color4=accent
-  const DARK_DEFAULTS  = { color1: '#1e1e2e', color2: '#181825', color3: '#313244', color4: '#cba6f7' }
-  const LIGHT_DEFAULTS = { color1: '#eff1f5', color2: '#e6e9ef', color3: '#ffffff',  color4: '#8839ef' }
-
-  const [darkColors, setDarkColors] = useState(() => ({
-    color1: window.localStorage.getItem('dark-color1') ?? DARK_DEFAULTS.color1,
-    color2: window.localStorage.getItem('dark-color2') ?? DARK_DEFAULTS.color2,
-    color3: window.localStorage.getItem('dark-color3') ?? DARK_DEFAULTS.color3,
-    color4: window.localStorage.getItem('dark-color4') ?? DARK_DEFAULTS.color4,
-  }))
-  const [lightColors, setLightColors] = useState(() => ({
-    color1: window.localStorage.getItem('light-color1') ?? LIGHT_DEFAULTS.color1,
-    color2: window.localStorage.getItem('light-color2') ?? LIGHT_DEFAULTS.color2,
-    color3: window.localStorage.getItem('light-color3') ?? LIGHT_DEFAULTS.color3,
-    color4: window.localStorage.getItem('light-color4') ?? LIGHT_DEFAULTS.color4,
-  }))
-  // Draft state for settings inputs (not applied until user edits)
-  const [colorDraft, setColorDraft] = useState({ color1: '', color2: '', color3: '', color4: '' })
+  const [darkAccent, setDarkAccent] = useState<AccentName>(() => getStoredAccent('dark'))
+  const [lightAccent, setLightAccent] = useState<AccentName>(() => getStoredAccent('light'))
+  const [accentDraft, setAccentDraft] = useState<AccentName>(DEFAULT_ACCENT.light)
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('planner')
   const [week, setWeek] = useState<Week | null>(null)
@@ -58,13 +148,21 @@ function App() {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [mealDrafts, setMealDrafts] = useState<Record<string, Partial<Meal>>>({})
-  const [suggestions, setSuggestions] = useState<Record<string, Suggestion[]>>({})
-  const [openSuggestionId, setOpenSuggestionId] = useState<string | null>(null)
-  const [editingMealId, setEditingMealId] = useState<string | null>(null)
   const [ingredientDialog, setIngredientDialog] = useState<{ mealId: string; recipe: Recipe } | null>(null)
+  const [ingredientConfirmDialog, setIngredientConfirmDialog] = useState<{ mealId: string; recipe: Recipe } | null>(null)
   const [selectedIngredientIds, setSelectedIngredientIds] = useState<string[]>([])
   const [linkConfirmMeal, setLinkConfirmMeal] = useState<Meal | null>(null)
+  const [editingMealId, setEditingMealId] = useState<string | null>(null)
+  const [recipeModalDraft, setRecipeModalDraft] = useState<RecipeDraft>(EMPTY_RECIPE_DRAFT)
+  const [recipeModalRecipeId, setRecipeModalRecipeId] = useState<string | null>(null)
+  const [recipeModalLocked, setRecipeModalLocked] = useState(false)
+  const [recipeModalSuggestions, setRecipeModalSuggestions] = useState<Suggestion[]>([])
+  const [recipeModalSaving, setRecipeModalSaving] = useState(false)
+  const [recipeModalError, setRecipeModalError] = useState<string | null>(null)
+  const [recipeModalDebug, setRecipeModalDebug] = useState('idle')
+  const [weekPickerOpen, setWeekPickerOpen] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()))
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
   const dragIndex = useRef<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [recipeSearch, setRecipeSearch] = useState('')
@@ -72,14 +170,14 @@ function App() {
   const [ingredientSearch, setIngredientSearch] = useState('')
   const [ingredientMode, setIngredientMode] = useState<'any' | 'all'>('any')
   const [shoppingDraft, setShoppingDraft] = useState('')
-  const [recipeForm, setRecipeForm] = useState({
-    name: '',
-    url: '',
-    notes: '',
-    tags: '',
-    ingredients: 'Poulet|2 poitrines',
-    isFavorite: false,
-  })
+  const [recipeForm, setRecipeForm] = useState<RecipeDraft>({ ...EMPTY_RECIPE_DRAFT, ingredients: 'Poulet|2 poitrines' })
+  const recipeModalSelectedRecipeRef = useRef<Recipe | null>(null)
+  const recipeSuggestionRequestRef = useRef(0)
+
+  function setRecipeDebug(message: string) {
+    console.log('[recipe-modal]', message)
+    setRecipeModalDebug(message)
+  }
 
   useEffect(() => {
     void loadDashboard(locale)
@@ -91,48 +189,9 @@ function App() {
   }, [theme])
 
   useEffect(() => {
-    const colors = theme === 'dark' ? darkColors : lightColors
-    const root = document.documentElement
-    root.style.setProperty('--page-background', colors.color1)
-    root.style.setProperty('--surface', colors.color2)
-    root.style.setProperty('--surface-strong', colors.color3)
-    root.style.setProperty('--accent', colors.color4)
-  }, [theme, darkColors, lightColors])
-
-  function applyColorDraft() {
-    const isValidHex = (v: string) => /^#[0-9a-fA-F]{3,8}$/.test(v)
-    const prefix = theme === 'dark' ? 'dark' : 'light'
-    const current = theme === 'dark' ? darkColors : lightColors
-    const next = {
-      color1: isValidHex(colorDraft.color1) ? colorDraft.color1 : current.color1,
-      color2: isValidHex(colorDraft.color2) ? colorDraft.color2 : current.color2,
-      color3: isValidHex(colorDraft.color3) ? colorDraft.color3 : current.color3,
-      color4: isValidHex(colorDraft.color4) ? colorDraft.color4 : current.color4,
-    }
-    window.localStorage.setItem(`${prefix}-color1`, next.color1)
-    window.localStorage.setItem(`${prefix}-color2`, next.color2)
-    window.localStorage.setItem(`${prefix}-color3`, next.color3)
-    window.localStorage.setItem(`${prefix}-color4`, next.color4)
-    if (theme === 'dark') setDarkColors(next)
-    else setLightColors(next)
-  }
-
-  function resetColors() {
-    const prefix = theme === 'dark' ? 'dark' : 'light'
-    const defaults = theme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
-    ;(['color1', 'color2', 'color3', 'color4'] as const).forEach((k) => {
-      window.localStorage.removeItem(`${prefix}-${k}`)
-    })
-    if (theme === 'dark') setDarkColors({ ...defaults })
-    else setLightColors({ ...defaults })
-    setColorDraft({ color1: '', color2: '', color3: '', color4: '' })
-  }
-
-  function openSettings() {
-    const current = theme === 'dark' ? darkColors : lightColors
-    setColorDraft({ ...current })
-    setSettingsOpen(true)
-  }
+    const accent = theme === 'dark' ? darkAccent : lightAccent
+    document.documentElement.style.setProperty('--accent', `var(--ctp-${accent})`)
+  }, [theme, darkAccent, lightAccent])
 
   async function loadDashboard(nextLocale: Locale) {
     setLoading(true)
@@ -147,13 +206,17 @@ function App() {
       setWeek(weekResponse.week)
       setWeeks(weeksResponse.weeks)
       setRecipes(recipesResponse.recipes)
-      setMealDrafts({})
-      setSuggestions({})
+      setRecipeModalSuggestions([])
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Failed to load app')
     } finally {
       setLoading(false)
     }
+  }
+
+  async function refreshWeekList() {
+    const response = await fetchWeeks(locale)
+    setWeeks(response.weeks)
   }
 
   async function refreshRecipes() {
@@ -166,127 +229,301 @@ function App() {
     setRecipes(response.recipes)
   }
 
-  function splitList(value: string) {
-    return value
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean)
+  function upsertRecipe(recipe: Recipe) {
+    setRecipes((current) => {
+      const existingIndex = current.findIndex((item) => item.id === recipe.id)
+      if (existingIndex === -1) return [recipe, ...current]
+      const next = [...current]
+      next[existingIndex] = recipe
+      return next
+    })
   }
 
-  function mealState(meal: Meal) {
-    return { ...meal, ...mealDrafts[meal.id] }
+  function setAccentForTheme(nextAccent: AccentName) {
+    const prefix = theme === 'dark' ? 'dark' : 'light'
+    window.localStorage.setItem(`${prefix}-accent`, nextAccent)
+    if (theme === 'dark') setDarkAccent(nextAccent)
+    else setLightAccent(nextAccent)
   }
 
-  async function handleMealFieldChange(meal: Meal, field: keyof Meal, value: string | MealStatus | null) {
-    setMealDrafts((current) => ({
-      ...current,
-      [meal.id]: {
-        ...current[meal.id],
-        [field]: value,
-      },
-    }))
+  function openSettings() {
+    setAccentDraft(theme === 'dark' ? darkAccent : lightAccent)
+    setSettingsOpen(true)
+  }
 
-    if (field === 'title' && typeof value === 'string' && value.trim().length >= 2) {
-      const response = await fetchSuggestions(value)
-      setSuggestions((current) => ({ ...current, [meal.id]: response.suggestions }))
-      setOpenSuggestionId(meal.id)
+  function closeSettings() {
+    setSettingsOpen(false)
+    const accent = theme === 'dark' ? darkAccent : lightAccent
+    document.documentElement.style.setProperty('--accent', `var(--ctp-${accent})`)
+  }
+
+  function applyAccentDraft() {
+    setAccentForTheme(accentDraft)
+    setSettingsOpen(false)
+  }
+
+  function resetAccent() {
+    const nextAccent = DEFAULT_ACCENT[theme]
+    window.localStorage.removeItem(`${theme}-accent`)
+    if (theme === 'dark') setDarkAccent(nextAccent)
+    else setLightAccent(nextAccent)
+    setAccentDraft(nextAccent)
+  }
+
+  function findRecipeByName(name: string, source = recipes) {
+    const normalized = name.trim().toLowerCase()
+    return source.find((recipe) => recipe.name.trim().toLowerCase() === normalized) ?? null
+  }
+
+  async function fetchExactRecipe(name: string) {
+    const localMatch = findRecipeByName(name)
+    if (localMatch) return localMatch
+    const response = await fetchRecipes({ search: name })
+    const exactMatch = findRecipeByName(name, response.recipes)
+    if (exactMatch) upsertRecipe(exactMatch)
+    return exactMatch
+  }
+
+  function applyExistingRecipe(recipe: Recipe) {
+    recipeSuggestionRequestRef.current += 1
+    recipeModalSelectedRecipeRef.current = recipe
+    setRecipeModalDraft(recipeToDraft(recipe))
+    setRecipeModalRecipeId(recipe.id)
+    setRecipeModalLocked(true)
+    setRecipeModalSuggestions([])
+    setRecipeModalError(null)
+    setRecipeDebug(`selected existing recipe ${recipe.id} (${recipe.name})`)
+  }
+
+  async function handleRecipeNameInput(value: string) {
+    const selectedRecipe = recipeModalRecipeId ? recipes.find((recipe) => recipe.id === recipeModalRecipeId) ?? null : null
+    const isSwitchingRecipes = selectedRecipe ? selectedRecipe.name.trim().toLowerCase() !== value.trim().toLowerCase() : false
+
+    if (isSwitchingRecipes) {
+      recipeModalSelectedRecipeRef.current = null
+      setRecipeModalError(null)
+      setRecipeDebug(`switching to new recipe search: ${value.trim() || '(empty)'}`)
+      setRecipeModalDraft(emptyRecipeDraftWithName(value))
+      setRecipeModalRecipeId(null)
+      setRecipeModalLocked(false)
+    } else {
+      setRecipeModalDraft((current) => ({ ...current, name: value }))
+    }
+
+    const trimmedValue = value.trim()
+    if (trimmedValue.length < 2) {
+      recipeSuggestionRequestRef.current += 1
+      setRecipeModalSuggestions([])
+      return
+    }
+
+    const requestId = recipeSuggestionRequestRef.current + 1
+    recipeSuggestionRequestRef.current = requestId
+    const response = await fetchSuggestions(trimmedValue)
+    if (recipeSuggestionRequestRef.current !== requestId) return
+    setRecipeModalSuggestions(response.suggestions)
+
+    const exactMatch = findRecipeByName(trimmedValue)
+    if (exactMatch) {
+      applyExistingRecipe(exactMatch)
+    } else if (isSwitchingRecipes) {
+      setRecipeModalDraft(emptyRecipeDraftWithName(value))
     }
   }
 
-  function applySuggestion(meal: Meal, suggestion: Suggestion) {
-    setMealDrafts((current) => ({
-      ...current,
-      [meal.id]: {
-        ...current[meal.id],
-        title: suggestion.label,
-        recipeId: suggestion.recipeId,
-        recipeUrl: suggestion.recipeUrl,
-      },
-    }))
-    setOpenSuggestionId(null)
+  async function applyRecipeSuggestion(suggestion: Suggestion) {
+    recipeSuggestionRequestRef.current += 1
+    setRecipeModalError(null)
+    setRecipeDebug(`clicked suggestion ${suggestion.label} type=${suggestion.type} recipeId=${suggestion.recipeId ?? 'null'}`)
+    if (suggestion.recipeId) {
+      setRecipeModalDraft(emptyRecipeDraftWithName(suggestion.label))
+      setRecipeModalRecipeId(suggestion.recipeId)
+      setRecipeModalLocked(true)
+      setRecipeModalSuggestions([])
+
+      const matchedRecipe = recipes.find((recipe) => recipe.id === suggestion.recipeId) ?? await fetchExactRecipe(suggestion.label)
+      if (matchedRecipe) {
+        applyExistingRecipe(matchedRecipe)
+        return
+      }
+
+      setRecipeDebug(`suggestion resolve failed for ${suggestion.label}`)
+
+    }
+
+    setRecipeModalDraft((current) => ({ ...current, name: suggestion.label, url: suggestion.recipeUrl ?? current.url }))
+    recipeModalSelectedRecipeRef.current = null
+    setRecipeModalRecipeId(null)
+    setRecipeModalLocked(false)
+    setRecipeModalSuggestions([])
+    setRecipeDebug(`freeform suggestion applied ${suggestion.label}`)
   }
 
   function openMealEditor(mealId: string) {
+    const meal = week?.meals.find((item) => item.id === mealId)
+    if (!meal) return
+
     setEditingMealId(mealId)
-    setOpenSuggestionId(null)
+    recipeSuggestionRequestRef.current += 1
+    setRecipeModalSuggestions([])
+    setRecipeModalError(null)
+    setRecipeDebug(`opened meal editor ${mealId}`)
+
+    if (meal.recipe) {
+      recipeModalSelectedRecipeRef.current = meal.recipe
+      setRecipeModalDraft(recipeToDraft(meal.recipe))
+      setRecipeModalRecipeId(meal.recipe.id)
+      setRecipeModalLocked(true)
+      return
+    }
+
+    recipeModalSelectedRecipeRef.current = null
+    setRecipeModalDraft({
+      name: meal.title,
+      url: meal.recipeUrl ?? '',
+      notes: meal.notes,
+      tags: '',
+      ingredients: '',
+      isFavorite: false,
+    })
+    setRecipeModalRecipeId(null)
+    setRecipeModalLocked(false)
   }
 
   function closeMealEditor() {
+    setRecipeDebug('closing meal editor')
+    recipeSuggestionRequestRef.current += 1
+    recipeModalSelectedRecipeRef.current = null
     setEditingMealId(null)
-    setOpenSuggestionId(null)
+    setRecipeModalRecipeId(null)
+    setRecipeModalDraft(EMPTY_RECIPE_DRAFT)
+    setRecipeModalLocked(false)
+    setRecipeModalSuggestions([])
+    setRecipeModalSaving(false)
+    setRecipeModalError(null)
   }
 
-  async function handleMealSave(meal: Meal) {
-    if (!week) return
-    const draft = mealState(meal)
-    const response = await updateMeal(week.id, meal.id, {
-      title: draft.title ?? '',
-      notes: draft.notes ?? '',
-      status: draft.status ?? 'PLANNED',
-      recipeId: draft.recipeId ?? null,
-      recipeUrl: draft.recipeUrl ?? null,
-    })
+  async function handleRecipeNameBlur() {
+    if (recipeModalRecipeId || !recipeModalDraft.name.trim()) return
+    const match = await fetchExactRecipe(recipeModalDraft.name)
+    if (match) applyExistingRecipe(match)
+  }
 
-    const updatedMeal = response.meal
-    setWeek((current) =>
-      current
-        ? {
-            ...current,
-            meals: current.meals.map((item) => (item.id === meal.id ? updatedMeal : item)),
-          }
-        : current,
-    )
-    setMealDrafts((current) => {
-      const next = { ...current }
-      delete next[meal.id]
-      return next
-    })
+  async function handleMealRecipeSave() {
+    if (!week || !editingMealId || recipeModalSaving) return
+    const editingMeal = week.meals.find((meal) => meal.id === editingMealId)
+    if (!editingMeal) return
 
-    if (!updatedMeal.recipeId && updatedMeal.title.trim()) {
-      const shouldCreate = window.confirm(t(locale, 'createRecipePrompt'))
-      if (shouldCreate) {
-        const created = await createRecipe({
-          name: updatedMeal.title,
-          url: updatedMeal.recipeUrl ?? undefined,
-          notes: updatedMeal.notes,
-          tags: [],
-          ingredients: [],
+    const payload = parseRecipeDraft(recipeModalDraft)
+    if (!payload.name) {
+      setRecipeModalError(t(locale, 'mealName'))
+      return
+    }
+
+    setRecipeModalSaving(true)
+    setRecipeModalError(null)
+    setRecipeDebug(`save clicked meal=${editingMeal.id} selected=${recipeModalRecipeId ?? 'none'} locked=${String(recipeModalLocked)} payload=${payload.name}`)
+
+    try {
+      if (recipeModalLocked && recipeModalRecipeId) {
+        setRecipeDebug(`locked path updateMeal start recipe=${recipeModalRecipeId}`)
+        const mealResponse = await updateMeal(week.id, editingMeal.id, {
+          title: payload.name,
+          notes: payload.notes,
+          status: editingMeal.status,
+          recipeId: recipeModalRecipeId,
+          recipeUrl: payload.url || null,
         })
+        setRecipeDebug(`locked path updateMeal success recipe=${mealResponse.meal.recipeId ?? 'null'} ingredients=${mealResponse.meal.recipe?.ingredients.length ?? 0}`)
 
-        const linked = await updateMeal(week.id, meal.id, {
-          recipeId: created.recipe.id,
-          recipeUrl: created.recipe.url,
-          title: created.recipe.name,
-          notes: updatedMeal.notes,
-          status: updatedMeal.status,
-        })
-
-        setRecipes((current) => [created.recipe, ...current])
         setWeek((current) =>
           current
             ? {
                 ...current,
-                meals: current.meals.map((item) => (item.id === meal.id ? linked.meal : item)),
+                meals: current.meals.map((meal) => (meal.id === editingMeal.id ? mealResponse.meal : meal)),
               }
             : current,
         )
-      }
-      return
-    }
 
-    if (updatedMeal.recipe && updatedMeal.recipe.ingredients.length > 0) {
-      setIngredientDialog({ mealId: updatedMeal.id, recipe: updatedMeal.recipe })
-      setSelectedIngredientIds(
-        updatedMeal.recipe.ingredients
-          .filter((ingredient) => !ingredient.isPantryStaple)
-          .map((ingredient) => ingredient.ingredientId),
+        closeMealEditor()
+
+        if (mealResponse.meal.recipe?.ingredients.length) {
+          setRecipeDebug('locked path opening ingredient confirm')
+          setSelectedIngredientIds(
+            mealResponse.meal.recipe.ingredients
+              .filter((ingredient) => !ingredient.isPantryStaple)
+              .map((ingredient) => ingredient.ingredientId),
+          )
+          setIngredientConfirmDialog({ mealId: mealResponse.meal.id, recipe: mealResponse.meal.recipe })
+        }
+
+        return
+      }
+
+      let savedRecipe: Recipe
+      if (recipeModalRecipeId) {
+        setRecipeDebug(`editing existing recipe ${recipeModalRecipeId}`)
+        const response = await updateRecipe(recipeModalRecipeId, payload)
+        savedRecipe = response.recipe
+        upsertRecipe(savedRecipe)
+        recipeModalSelectedRecipeRef.current = savedRecipe
+      } else {
+        const exactMatch = await fetchExactRecipe(payload.name)
+        if (exactMatch) {
+          setRecipeDebug(`resolved exact match ${exactMatch.id}`)
+          savedRecipe = exactMatch
+          recipeModalSelectedRecipeRef.current = exactMatch
+        } else {
+          setRecipeDebug(`creating recipe ${payload.name}`)
+          const response = await createRecipe(payload)
+          savedRecipe = response.recipe
+          upsertRecipe(savedRecipe)
+          recipeModalSelectedRecipeRef.current = savedRecipe
+        }
+      }
+
+      const mealResponse = await updateMeal(week.id, editingMeal.id, {
+        title: savedRecipe.name,
+        notes: savedRecipe.notes,
+        status: editingMeal.status,
+        recipeId: savedRecipe.id,
+        recipeUrl: savedRecipe.url,
+      })
+      setRecipeDebug(`standard path updateMeal success recipe=${mealResponse.meal.recipeId ?? 'null'} ingredients=${mealResponse.meal.recipe?.ingredients.length ?? 0}`)
+
+      setWeek((current) =>
+        current
+          ? {
+              ...current,
+              meals: current.meals.map((meal) => (meal.id === editingMeal.id ? mealResponse.meal : meal)),
+            }
+          : current,
       )
+
+      closeMealEditor()
+
+      if (mealResponse.meal.recipe?.ingredients.length) {
+        setRecipeDebug('standard path opening ingredient confirm')
+        setSelectedIngredientIds(
+          mealResponse.meal.recipe.ingredients
+            .filter((ingredient) => !ingredient.isPantryStaple)
+            .map((ingredient) => ingredient.ingredientId),
+        )
+        setIngredientConfirmDialog({ mealId: mealResponse.meal.id, recipe: mealResponse.meal.recipe })
+      }
+    } catch (error) {
+      console.error('[recipe-modal] save failed', error)
+      setRecipeModalError(error instanceof Error ? error.message : 'Failed to save recipe')
+      setRecipeDebug(`save failed ${error instanceof Error ? error.message : 'unknown error'}`)
+    } finally {
+      setRecipeModalSaving(false)
     }
   }
 
-  async function handleMealEditorSave(meal: Meal) {
-    await handleMealSave(meal)
-    closeMealEditor()
+  function handleOpenIngredientPicker() {
+    if (!ingredientConfirmDialog) return
+    setIngredientDialog(ingredientConfirmDialog)
+    setIngredientConfirmDialog(null)
   }
 
   async function handleConfirmIngredients() {
@@ -355,66 +592,67 @@ function App() {
   }
 
   async function handleCreateRecipe() {
-    const created = await createRecipe({
-      name: recipeForm.name,
-      url: recipeForm.url,
-      notes: recipeForm.notes,
-      isFavorite: recipeForm.isFavorite,
-      tags: splitList(recipeForm.tags),
-      ingredients: recipeForm.ingredients
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => {
-          const [name, quantityText] = line.split('|')
-          return { name: name.trim(), quantityText: quantityText?.trim() }
-        }),
-    })
+    const payload = parseRecipeDraft(recipeForm)
+    if (!payload.name) return
+    const created = await createRecipe(payload)
 
-    setRecipeForm({ name: '', url: '', notes: '', tags: '', ingredients: '', isFavorite: false })
-    setRecipes((current) => [created.recipe, ...current])
+    setRecipeForm(EMPTY_RECIPE_DRAFT)
+    upsertRecipe(created.recipe)
     setActiveTab('recipes')
   }
 
   async function handleWeekSelect(weekId: string) {
     const response = await fetchWeek(weekId, locale)
     setWeek(response.week)
-    // Go to planner on desktop, dinner on mobile — CSS handles which tab bar is shown
     setActiveTab('planner')
   }
 
-  // Group meals by day for the desktop planner grid
+  function openWeekPicker() {
+    const today = new Date()
+    setSelectedCalendarDate(today)
+    setCalendarMonth(startOfMonth(today))
+    setWeekPickerOpen(true)
+  }
+
+  async function handleCreateWeek() {
+    const response = await createWeek(toDateString(selectedCalendarDate), locale)
+    setWeek(response.week)
+    setWeekPickerOpen(false)
+    setActiveTab('planner')
+    await refreshWeekList()
+  }
+
   const groupedMeals = (week?.meals ?? []).reduce<Record<string, Meal[]>>((accumulator, meal) => {
     accumulator[meal.dayOfWeek] = [...(accumulator[meal.dayOfWeek] ?? []), meal]
     return accumulator
   }, {})
 
-  // Group meals by day+mealType for quick lookup in mobile columns
   const mealByDayAndType = (week?.meals ?? []).reduce<Record<string, Meal>>((accumulator, meal) => {
     accumulator[`${meal.dayOfWeek}:${meal.mealType}`] = meal
     return accumulator
   }, {})
 
   const editingMeal = week?.meals.find((meal) => meal.id === editingMealId) ?? null
-  const editingDraft = editingMeal ? mealState(editingMeal) : null
-
-  // ── Render helpers (plain functions, not components — avoids remount on render) ──
+  const mobilePlannerTabs: MobileTab[] = ['dinner', 'supper', 'shopping', 'recipes', 'history']
+  const desktopTabs: DesktopTab[] = ['planner', 'recipes', 'history']
+  const currentMobileTab = activeTab === 'planner' ? 'dinner' : (mobilePlannerTabs.includes(activeTab as MobileTab) ? activeTab as MobileTab : 'dinner')
+  const today = new Date()
+  const calendarDays = buildCalendarDays(calendarMonth)
 
   function renderMealCard(meal: Meal) {
-    const draft = mealState(meal)
     return (
       <div
         key={meal.id}
-        className={draft.recipeUrl ? 'meal-card meal-card-clickable' : 'meal-card'}
-        onClick={() => { if (draft.recipeUrl) setLinkConfirmMeal(meal) }}
+        className={meal.recipeUrl ? 'meal-card meal-card-clickable' : 'meal-card'}
+        onClick={() => { if (meal.recipeUrl) setLinkConfirmMeal(meal) }}
       >
         <div className="meal-summary">
-          <strong>{draft.title?.trim() || t(locale, 'mealName')}</strong>
+          <strong>{meal.title.trim() || t(locale, 'mealName')}</strong>
         </div>
         <div className="meal-card-actions">
           <button
             className="secondary-button icon-button"
-            onClick={(e) => { e.stopPropagation(); openMealEditor(meal.id) }}
+            onClick={(event) => { event.stopPropagation(); openMealEditor(meal.id) }}
             aria-label={t(locale, 'edit')}
             title={t(locale, 'edit')}
           >
@@ -437,6 +675,15 @@ function App() {
             </div>
           )
         })}
+      </div>
+    )
+  }
+
+  function renderPlannerHeader(title: string) {
+    return (
+      <div className="panel-header planner-header-row">
+        <h2>{title}</h2>
+        <button className="primary-button" onClick={openWeekPicker}>{t(locale, 'newWeek')}</button>
       </div>
     )
   }
@@ -489,14 +736,10 @@ function App() {
             {currentWeek.shoppingList.items.map((item, index) => (
               <label
                 key={item.id}
-                className={[
-                  'shopping-item',
-                  item.checked ? 'checked' : '',
-                  dragOverIndex === index ? 'drag-over' : '',
-                ].filter(Boolean).join(' ')}
+                className={['shopping-item', item.checked ? 'checked' : '', dragOverIndex === index ? 'drag-over' : ''].filter(Boolean).join(' ')}
                 draggable
                 onDragStart={() => handleShoppingDragStart(index)}
-                onDragOver={(e) => handleShoppingDragOver(e, index)}
+                onDragOver={(event) => handleShoppingDragOver(event, index)}
                 onDragEnd={handleShoppingDragEnd}
               >
                 <input type="checkbox" checked={item.checked} onChange={() => void toggleShoppingItem(item)} />
@@ -514,21 +757,6 @@ function App() {
       </>
     )
   }
-
-  // ── Tab helpers ────────────────────────────────────────────────────────────
-  // On mobile, 'planner' maps to 'dinner' so clicking history→planner on desktop
-  // then switching to mobile still shows a planner tab as active.
-  const mobilePlannerTabs: MobileTab[] = ['dinner', 'supper', 'shopping', 'recipes', 'history']
-  const desktopTabs: DesktopTab[] = ['planner', 'recipes', 'history']
-
-  // Determine which mobile tab is "active" when activeTab is a desktop-only value
-  function effectiveMobileTab(): MobileTab {
-    if (activeTab === 'planner') return 'dinner'
-    if ((mobilePlannerTabs as ActiveTab[]).includes(activeTab)) return activeTab as MobileTab
-    return 'dinner'
-  }
-
-  const currentMobileTab = effectiveMobileTab()
 
   return (
     <div className="app-shell">
@@ -551,60 +779,34 @@ function App() {
           >
             {locale === 'fr-CA' ? 'FR' : 'EN'}
           </button>
-          <button
-            className="header-pill-button"
-            onClick={openSettings}
-            aria-label={t(locale, 'settings')}
-            title={t(locale, 'settings')}
-          >
+          <button className="header-pill-button" onClick={openSettings} aria-label={t(locale, 'settings')} title={t(locale, 'settings')}>
             ⚙
           </button>
         </div>
       </header>
 
-      {/* ── Desktop tab bar (hidden on mobile via CSS) ── */}
       <nav className="tab-bar tab-bar-desktop">
         {desktopTabs.map((tab) => (
-          <button
-            key={tab}
-            className={activeTab === tab ? 'tab-button active' : 'tab-button'}
-            onClick={() => setActiveTab(tab)}
-          >
+          <button key={tab} className={activeTab === tab ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab(tab)}>
             {t(locale, tab)}
           </button>
         ))}
       </nav>
 
-      {/* ── Mobile tab bar (hidden on desktop via CSS) ── */}
       <nav className="tab-bar tab-bar-mobile">
-        <button
-          className={currentMobileTab === 'dinner' ? 'tab-button active' : 'tab-button'}
-          onClick={() => setActiveTab('dinner')}
-        >
+        <button className={currentMobileTab === 'dinner' ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab('dinner')}>
           {mealLabel(locale, 'DINNER')}
         </button>
-        <button
-          className={currentMobileTab === 'supper' ? 'tab-button active' : 'tab-button'}
-          onClick={() => setActiveTab('supper')}
-        >
+        <button className={currentMobileTab === 'supper' ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab('supper')}>
           {mealLabel(locale, 'SUPPER')}
         </button>
-        <button
-          className={currentMobileTab === 'shopping' ? 'tab-button active' : 'tab-button'}
-          onClick={() => setActiveTab('shopping')}
-        >
+        <button className={currentMobileTab === 'shopping' ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab('shopping')}>
           {t(locale, 'shoppingList')}
         </button>
-        <button
-          className={currentMobileTab === 'recipes' ? 'tab-button active' : 'tab-button'}
-          onClick={() => setActiveTab('recipes')}
-        >
+        <button className={currentMobileTab === 'recipes' ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab('recipes')}>
           {t(locale, 'recipes')}
         </button>
-        <button
-          className={currentMobileTab === 'history' ? 'tab-button active' : 'tab-button'}
-          onClick={() => setActiveTab('history')}
-        >
+        <button className={currentMobileTab === 'history' ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab('history')}>
           {t(locale, 'history')}
         </button>
       </nav>
@@ -623,12 +825,9 @@ function App() {
         </section>
       ) : (
         <main className="main-layout">
-          {/* ── Desktop planner (hidden on mobile) ── */}
           <section className={activeTab === 'planner' ? 'content-column desktop-only' : 'content-column desktop-only hidden'}>
             <article className="panel planner-panel">
-              <div className="panel-header">
-                <h2>{t(locale, 'planner')}</h2>
-              </div>
+              {renderPlannerHeader(t(locale, 'planner'))}
 
               <div className="planner-grid">
                 <div className="planner-head planner-corner"></div>
@@ -641,36 +840,27 @@ function App() {
                 {DAYS.map((day) => (
                   <Fragment key={day}>
                     <div className="planner-day">{dayLabel(locale, day)}</div>
-                    {(groupedMeals[day] ?? [])
-                      .sort((left, right) => left.mealType.localeCompare(right.mealType))
-                      .map((meal) => renderMealCard(meal))}
+                    {(groupedMeals[day] ?? []).sort((left, right) => left.mealType.localeCompare(right.mealType)).map((meal) => renderMealCard(meal))}
                   </Fragment>
                 ))}
               </div>
             </article>
           </section>
 
-          {/* ── Mobile: Dinner column (hidden on desktop) ── */}
           <section className={currentMobileTab === 'dinner' ? 'content-column mobile-only' : 'content-column mobile-only hidden'}>
             <article className="panel planner-panel">
-              <div className="panel-header">
-                <h2>{mealLabel(locale, 'DINNER')}</h2>
-              </div>
+              {renderPlannerHeader(mealLabel(locale, 'DINNER'))}
               {renderMobileMealColumn('DINNER')}
             </article>
           </section>
 
-          {/* ── Mobile: Supper column (hidden on desktop) ── */}
           <section className={currentMobileTab === 'supper' ? 'content-column mobile-only' : 'content-column mobile-only hidden'}>
             <article className="panel planner-panel">
-              <div className="panel-header">
-                <h2>{mealLabel(locale, 'SUPPER')}</h2>
-              </div>
+              {renderPlannerHeader(mealLabel(locale, 'SUPPER'))}
               {renderMobileMealColumn('SUPPER')}
             </article>
           </section>
 
-          {/* ── Mobile: Shopping tab (hidden on desktop) ── */}
           <section className={currentMobileTab === 'shopping' ? 'content-column mobile-only' : 'content-column mobile-only hidden'}>
             <article className="panel shopping-panel">
               <div className="panel-header">
@@ -680,85 +870,36 @@ function App() {
             </article>
           </section>
 
-          {/* ── Recipes tab (desktop + mobile) ── */}
-          <section
-            className={
-              activeTab === 'recipes' || currentMobileTab === 'recipes'
-                ? 'content-column'
-                : 'content-column hidden'
-            }
-          >
+          <section className={activeTab === 'recipes' || currentMobileTab === 'recipes' ? 'content-column' : 'content-column hidden'}>
             <article className="panel">
               <div className="panel-header">
                 <h2>{t(locale, 'recipes')}</h2>
               </div>
 
               <div className="recipe-toolbar">
-                <input
-                  value={recipeSearch}
-                  placeholder={t(locale, 'searchRecipes')}
-                  onChange={(event) => setRecipeSearch(event.target.value)}
-                />
-                <input
-                  value={tagSearch}
-                  placeholder={t(locale, 'searchTags')}
-                  onChange={(event) => setTagSearch(event.target.value)}
-                />
-                <input
-                  value={ingredientSearch}
-                  placeholder={t(locale, 'searchIngredients')}
-                  onChange={(event) => setIngredientSearch(event.target.value)}
-                />
+                <input value={recipeSearch} placeholder={t(locale, 'searchRecipes')} onChange={(event) => setRecipeSearch(event.target.value)} />
+                <input value={tagSearch} placeholder={t(locale, 'searchTags')} onChange={(event) => setTagSearch(event.target.value)} />
+                <input value={ingredientSearch} placeholder={t(locale, 'searchIngredients')} onChange={(event) => setIngredientSearch(event.target.value)} />
                 <select value={ingredientMode} onChange={(event) => setIngredientMode(event.target.value as 'any' | 'all')}>
                   <option value="any">{t(locale, 'matchAny')}</option>
                   <option value="all">{t(locale, 'matchAll')}</option>
                 </select>
-                <button className="primary-button" onClick={() => void refreshRecipes()}>
-                  {t(locale, 'searchRecipes')}
-                </button>
+                <button className="primary-button" onClick={() => void refreshRecipes()}>{t(locale, 'searchRecipes')}</button>
               </div>
 
               <div className="recipe-layout">
                 <div className="recipe-form">
                   <h3>{t(locale, 'addRecipe')}</h3>
-                  <input
-                    value={recipeForm.name}
-                    placeholder={t(locale, 'mealName')}
-                    onChange={(event) => setRecipeForm((current) => ({ ...current, name: event.target.value }))}
-                  />
-                  <input
-                    value={recipeForm.url}
-                    placeholder={t(locale, 'recipeUrl')}
-                    onChange={(event) => setRecipeForm((current) => ({ ...current, url: event.target.value }))}
-                  />
-                  <textarea
-                    value={recipeForm.notes}
-                    rows={3}
-                    placeholder={t(locale, 'notes')}
-                    onChange={(event) => setRecipeForm((current) => ({ ...current, notes: event.target.value }))}
-                  />
-                  <input
-                    value={recipeForm.tags}
-                    placeholder="Rapide, BBQ, Familial"
-                    onChange={(event) => setRecipeForm((current) => ({ ...current, tags: event.target.value }))}
-                  />
-                  <textarea
-                    value={recipeForm.ingredients}
-                    rows={5}
-                    placeholder={'Poulet|2 poitrines\nRiz|2 tasses'}
-                    onChange={(event) => setRecipeForm((current) => ({ ...current, ingredients: event.target.value }))}
-                  />
+                  <input value={recipeForm.name} placeholder={t(locale, 'mealName')} onChange={(event) => setRecipeForm((current) => ({ ...current, name: event.target.value }))} />
+                  <input value={recipeForm.url} placeholder={t(locale, 'recipeUrl')} onChange={(event) => setRecipeForm((current) => ({ ...current, url: event.target.value }))} />
+                  <textarea value={recipeForm.notes} rows={3} placeholder={t(locale, 'notes')} onChange={(event) => setRecipeForm((current) => ({ ...current, notes: event.target.value }))} />
+                  <input value={recipeForm.tags} placeholder="Rapide, BBQ, Familial" onChange={(event) => setRecipeForm((current) => ({ ...current, tags: event.target.value }))} />
+                  <textarea value={recipeForm.ingredients} rows={5} placeholder={'Poulet|2 poitrines\nRiz|2 tasses'} onChange={(event) => setRecipeForm((current) => ({ ...current, ingredients: event.target.value }))} />
                   <label className="checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={recipeForm.isFavorite}
-                      onChange={(event) => setRecipeForm((current) => ({ ...current, isFavorite: event.target.checked }))}
-                    />
+                    <input type="checkbox" checked={recipeForm.isFavorite} onChange={(event) => setRecipeForm((current) => ({ ...current, isFavorite: event.target.checked }))} />
                     <span>{t(locale, 'favorite')}</span>
                   </label>
-                  <button className="primary-button" onClick={() => void handleCreateRecipe()}>
-                    {t(locale, 'addRecipe')}
-                  </button>
+                  <button className="primary-button" onClick={() => void handleCreateRecipe()}>{t(locale, 'addRecipe')}</button>
                 </div>
 
                 <div className="recipe-list">
@@ -774,9 +915,7 @@ function App() {
                       </div>
                       <div className="chip-row">
                         {recipe.tags.map((tag) => (
-                          <span key={tag.id} className="chip">
-                            {tag.name}
-                          </span>
+                          <span key={tag.id} className="chip">{tag.name}</span>
                         ))}
                       </div>
                       <ul className="ingredient-list">
@@ -788,20 +927,11 @@ function App() {
                         ))}
                       </ul>
                       <div className="recipe-metadata">
+                        <span>{t(locale, 'usageCount')}: {recipe.usageCount ?? 0}</span>
                         <span>
-                          {t(locale, 'usageCount')}: {recipe.usageCount ?? 0}
+                          {t(locale, 'lastMade')}: {recipe.lastMadeAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(recipe.lastMadeAt)) : '-'}
                         </span>
-                        <span>
-                          {t(locale, 'lastMade')}:{' '}
-                          {recipe.lastMadeAt
-                            ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(recipe.lastMadeAt))
-                            : '-'}
-                        </span>
-                        {recipe.url ? (
-                          <a href={recipe.url} target="_blank" rel="noreferrer">
-                            {t(locale, 'openRecipe')}
-                          </a>
-                        ) : null}
+                        {recipe.url ? <a href={recipe.url} target="_blank" rel="noreferrer">{t(locale, 'openRecipe')}</a> : null}
                       </div>
                     </article>
                   ))}
@@ -810,14 +940,7 @@ function App() {
             </article>
           </section>
 
-          {/* ── History tab (desktop + mobile) ── */}
-          <section
-            className={
-              activeTab === 'history' || currentMobileTab === 'history'
-                ? 'content-column'
-                : 'content-column hidden'
-            }
-          >
+          <section className={activeTab === 'history' || currentMobileTab === 'history' ? 'content-column' : 'content-column hidden'}>
             <article className="panel">
               <div className="panel-header">
                 <h2>{t(locale, 'history')}</h2>
@@ -825,11 +948,7 @@ function App() {
               <div className="history-list">
                 {weeks.length <= 1 ? <p>{t(locale, 'emptyHistory')}</p> : null}
                 {weeks.map((item) => (
-                  <button
-                    key={item.id}
-                    className={item.id === week.id ? 'history-card active' : 'history-card'}
-                    onClick={() => void handleWeekSelect(item.id)}
-                  >
+                  <button key={item.id} className={item.id === week.id ? 'history-card active' : 'history-card'} onClick={() => void handleWeekSelect(item.id)}>
                     <strong>{item.label}</strong>
                     <span>{item.highlights.join(' • ') || t(locale, 'planner')}</span>
                   </button>
@@ -838,7 +957,6 @@ function App() {
             </article>
           </section>
 
-          {/* ── Desktop sidebar: shopping list (hidden on mobile) ── */}
           <aside className="sidebar-column">
             <article className="panel shopping-panel">
               <div className="panel-header">
@@ -850,154 +968,197 @@ function App() {
         </main>
       )}
 
-      {/* ── Modal: Meal editor ── */}
-      {editingMeal && editingDraft ? (
+      {editingMeal ? (
         <div className="modal-backdrop">
-          <div className="modal-card meal-editor-modal">
+          <div className="modal-card recipe-editor-modal">
             <div className="panel-header">
-              <h3>{t(locale, 'edit')}</h3>
-              <button
-                className="secondary-button icon-button"
-                onClick={closeMealEditor}
-                aria-label={t(locale, 'close')}
-                title={t(locale, 'close')}
-              >
+              <h3>{t(locale, 'addRecipe')}</h3>
+              <button className="secondary-button icon-button" onClick={closeMealEditor} aria-label={t(locale, 'close')} title={t(locale, 'close')}>
                 <span aria-hidden="true">×</span>
               </button>
             </div>
+            <div className="recipe-editor-meta">
+              <strong>{dayLabel(locale, editingMeal.dayOfWeek)} · {mealLabel(locale, editingMeal.mealType)}</strong>
+              {recipeModalRecipeId ? <span className="badge">{t(locale, 'existingRecipe')}</span> : null}
+            </div>
             <div className="meal-editor-form">
+              <div className="recipe-name-field">
+                <div className="recipe-name-row">
+                  <input
+                    value={recipeModalDraft.name}
+                    placeholder={t(locale, 'mealName')}
+                    onBlur={() => void handleRecipeNameBlur()}
+                    onChange={(event) => void handleRecipeNameInput(event.target.value)}
+                  />
+                  {recipeModalRecipeId && recipeModalLocked ? (
+                    <button className="secondary-button" onClick={() => setRecipeModalLocked(false)}>{t(locale, 'editRecipe')}</button>
+                  ) : null}
+                </div>
+                {recipeModalSuggestions.length > 0 ? (
+                  <div className="suggestion-list recipe-modal-suggestions">
+                    {recipeModalSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion.id}
+                        className="suggestion-item"
+                        onMouseDown={(event) => {
+                          event.preventDefault()
+                          void applyRecipeSuggestion(suggestion)
+                        }}
+                      >
+                        <strong>{suggestion.label}</strong>
+                        <span>{suggestion.type === 'recipe' ? t(locale, 'recipes') : t(locale, 'history')}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <input
-                value={editingDraft.title ?? ''}
-                placeholder={t(locale, 'mealName')}
-                onFocus={() => setOpenSuggestionId(editingMeal.id)}
-                onChange={(event) => void handleMealFieldChange(editingMeal, 'title', event.target.value)}
-              />
-              <input
-                value={editingDraft.recipeUrl ?? ''}
+                value={recipeModalDraft.url}
                 placeholder={t(locale, 'recipeUrl')}
-                onChange={(event) => void handleMealFieldChange(editingMeal, 'recipeUrl', event.target.value)}
+                readOnly={recipeModalLocked}
+                onChange={(event) => setRecipeModalDraft((current) => ({ ...current, url: event.target.value }))}
               />
               <textarea
-                value={editingDraft.notes ?? ''}
+                value={recipeModalDraft.notes}
                 placeholder={t(locale, 'notes')}
                 rows={4}
-                onChange={(event) => void handleMealFieldChange(editingMeal, 'notes', event.target.value)}
+                readOnly={recipeModalLocked}
+                onChange={(event) => setRecipeModalDraft((current) => ({ ...current, notes: event.target.value }))}
               />
+              <input
+                value={recipeModalDraft.tags}
+                placeholder={t(locale, 'tags')}
+                readOnly={recipeModalLocked}
+                onChange={(event) => setRecipeModalDraft((current) => ({ ...current, tags: event.target.value }))}
+              />
+              <textarea
+                value={recipeModalDraft.ingredients}
+                placeholder={'Poulet|2 poitrines\nRiz|2 tasses\nBeurre||pantry'}
+                rows={6}
+                readOnly={recipeModalLocked}
+                onChange={(event) => setRecipeModalDraft((current) => ({ ...current, ingredients: event.target.value }))}
+              />
+              <label className={recipeModalLocked ? 'checkbox-row recipe-form-locked' : 'checkbox-row'}>
+                <input
+                  type="checkbox"
+                  checked={recipeModalDraft.isFavorite}
+                  disabled={recipeModalLocked}
+                  onChange={(event) => setRecipeModalDraft((current) => ({ ...current, isFavorite: event.target.checked }))}
+                />
+                <span>{t(locale, 'favorite')}</span>
+              </label>
             </div>
-            {openSuggestionId === editingMeal.id && (suggestions[editingMeal.id]?.length ?? 0) > 0 ? (
-              <div className="suggestion-list suggestion-list-inline">
-                {suggestions[editingMeal.id].map((suggestion) => (
-                  <button
-                    key={suggestion.id}
-                    className="suggestion-item"
-                    onMouseDown={() => applySuggestion(editingMeal, suggestion)}
-                  >
-                    <strong>{suggestion.label}</strong>
-                    <span>{suggestion.type === 'recipe' ? t(locale, 'recipes') : t(locale, 'history')}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
+            {recipeModalError ? <p className="form-error">{recipeModalError}</p> : null}
+            <p className="form-debug">{recipeModalDebug}</p>
             <div className="modal-actions">
-              {editingDraft.recipeUrl ? (
-                <a
-                  className="link-button icon-button"
-                  href={editingDraft.recipeUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={t(locale, 'openRecipe')}
-                  title={t(locale, 'openRecipe')}
-                >
+              {recipeModalDraft.url ? (
+                <a className="link-button icon-button" href={recipeModalDraft.url} target="_blank" rel="noreferrer" aria-label={t(locale, 'openRecipe')} title={t(locale, 'openRecipe')}>
                   <span aria-hidden="true">↗</span>
                 </a>
               ) : null}
-              <button className="secondary-button" onClick={closeMealEditor}>
-                {t(locale, 'close')}
-              </button>
-              <button className="primary-button" onClick={() => void handleMealEditorSave(editingMeal)}>
-                {t(locale, 'save')}
+              <button className="secondary-button" onClick={closeMealEditor}>{t(locale, 'close')}</button>
+              <button className={recipeModalSaving ? 'primary-button is-disabled' : 'primary-button'} onClick={() => void handleMealRecipeSave()} disabled={recipeModalSaving}>
+                {recipeModalSaving ? `${t(locale, 'save')}...` : t(locale, 'save')}
               </button>
             </div>
           </div>
         </div>
       ) : null}
 
-      {/* ── Modal: Settings ── */}
       {settingsOpen ? (
-        <div className="modal-backdrop" onClick={() => { applyColorDraft(); setSettingsOpen(false) }}>
-          <div className="modal-card settings-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={closeSettings}>
+          <div className="modal-card settings-modal" onClick={(event) => event.stopPropagation()}>
             <div className="panel-header">
               <h3>{t(locale, 'settings')}</h3>
-              <button
-                className="secondary-button icon-button"
-                onClick={() => { applyColorDraft(); setSettingsOpen(false) }}
-                aria-label={t(locale, 'close')}
-              >
+              <button className="secondary-button icon-button" onClick={closeSettings} aria-label={t(locale, 'close')}>
                 <span aria-hidden="true">×</span>
               </button>
             </div>
-            <div className="settings-color-grid">
-              {(
-                [
-                  { key: 'color1', cssVar: '--page-background', label: t(locale, 'colorBase') },
-                  { key: 'color2', cssVar: '--surface',         label: t(locale, 'colorSurface') },
-                  { key: 'color3', cssVar: '--surface-strong',  label: t(locale, 'colorMuted') },
-                  { key: 'color4', cssVar: '--accent',          label: t(locale, 'colorAccent') },
-                ] as const
-              ).map(({ key, cssVar, label }) => (
-                <div key={key}>
-                  <div className="settings-color-row">
-                    <label htmlFor={`color-${key}`}>{label}</label>
-                    <div
-                      className="settings-color-swatch"
-                      style={{ background: colorDraft[key] || (theme === 'dark' ? darkColors[key] : lightColors[key]) }}
-                    />
-                  </div>
-                  <input
-                    id={`color-${key}`}
-                    type="text"
-                    value={colorDraft[key]}
-                    placeholder={theme === 'dark' ? darkColors[key] : lightColors[key]}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setColorDraft((prev) => ({ ...prev, [key]: val }))
-                      if (/^#[0-9a-fA-F]{3,8}$/.test(val)) {
-                        document.documentElement.style.setProperty(cssVar, val)
-                      }
-                    }}
-                  />
-                </div>
+            <p className="settings-copy">{t(locale, 'accentColor')}</p>
+            <div className="accent-grid">
+              {CATPPUCCIN_ACCENTS.map((accent) => (
+                <button
+                  key={accent}
+                  className={accentDraft === accent ? 'accent-option active' : 'accent-option'}
+                  onClick={() => {
+                    setAccentDraft(accent)
+                    document.documentElement.style.setProperty('--accent', `var(--ctp-${accent})`)
+                  }}
+                >
+                  <span className="settings-color-swatch" style={{ background: `var(--ctp-${accent})` }} />
+                  <span>{t(locale, accent)}</span>
+                </button>
               ))}
             </div>
             <div className="modal-actions">
-              <button className="secondary-button" onClick={resetColors}>
-                {t(locale, 'resetColors')}
-              </button>
-              <button className="primary-button" onClick={() => { applyColorDraft(); setSettingsOpen(false) }}>
-                {t(locale, 'save')}
-              </button>
+              <button className="secondary-button" onClick={resetAccent}>{t(locale, 'resetColors')}</button>
+              <button className="primary-button" onClick={applyAccentDraft}>{t(locale, 'save')}</button>
             </div>
           </div>
         </div>
       ) : null}
 
-      {/* ── Modal: Link confirm ── */}
+      {weekPickerOpen ? (
+        <div className="modal-backdrop" onClick={() => setWeekPickerOpen(false)}>
+          <div className="modal-card week-picker-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-header">
+              <h3>{t(locale, 'newWeek')}</h3>
+              <button className="secondary-button icon-button" onClick={() => setWeekPickerOpen(false)} aria-label={t(locale, 'close')}>
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div className="calendar-header">
+              <button className="secondary-button icon-button" onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} aria-label={t(locale, 'previousMonth')}>
+                <span aria-hidden="true">‹</span>
+              </button>
+              <strong>{new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(calendarMonth)}</strong>
+              <button className="secondary-button icon-button" onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} aria-label={t(locale, 'nextMonth')}>
+                <span aria-hidden="true">›</span>
+              </button>
+            </div>
+            <div className="calendar-grid calendar-grid-head">
+              {DAYS.map((day) => (
+                <span key={day} className="calendar-weekday">{dayLabel(locale, day).slice(0, 3)}</span>
+              ))}
+            </div>
+            <div className="calendar-grid">
+              {calendarDays.map((day) => {
+                const isToday = sameDate(day, today)
+                const isSelected = sameDate(day, selectedCalendarDate)
+                const isOutsideMonth = day.getMonth() !== calendarMonth.getMonth()
+                return (
+                  <button
+                    key={day.toISOString()}
+                    className={[
+                      'calendar-day-button',
+                      isToday ? 'today' : '',
+                      isSelected ? 'selected' : '',
+                      isOutsideMonth ? 'outside-month' : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => setSelectedCalendarDate(day)}
+                  >
+                    <span>{day.getDate()}</span>
+                    {isToday ? <small>{t(locale, 'today')}</small> : null}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="modal-actions">
+              <button className="secondary-button" onClick={() => setWeekPickerOpen(false)}>{t(locale, 'close')}</button>
+              <button className="primary-button" onClick={() => void handleCreateWeek()}>{t(locale, 'openWeek')}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {linkConfirmMeal ? (
         <div className="modal-backdrop">
           <div className="modal-card">
             <p>{t(locale, 'openLinkConfirm')}</p>
             <p><strong>{linkConfirmMeal.title}</strong></p>
             <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setLinkConfirmMeal(null)}>
-                {t(locale, 'close')}
-              </button>
-              <a
-                className="primary-button"
-                href={linkConfirmMeal.recipeUrl ?? ''}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setLinkConfirmMeal(null)}
-              >
+              <button className="secondary-button" onClick={() => setLinkConfirmMeal(null)}>{t(locale, 'close')}</button>
+              <a className="primary-button" href={linkConfirmMeal.recipeUrl ?? ''} target="_blank" rel="noreferrer" onClick={() => setLinkConfirmMeal(null)}>
                 {t(locale, 'open')}
               </a>
             </div>
@@ -1005,7 +1166,19 @@ function App() {
         </div>
       ) : null}
 
-      {/* ── Modal: Ingredient picker ── */}
+      {ingredientConfirmDialog ? (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3>{t(locale, 'ingredientConfirmPrompt')}</h3>
+            <p>{ingredientConfirmDialog.recipe.name}</p>
+            <div className="modal-actions">
+              <button className="secondary-button" onClick={() => setIngredientConfirmDialog(null)}>{t(locale, 'skipIngredients')}</button>
+              <button className="primary-button" onClick={handleOpenIngredientPicker}>{t(locale, 'chooseIngredients')}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {ingredientDialog ? (
         <div className="modal-backdrop">
           <div className="modal-card">
@@ -1034,12 +1207,8 @@ function App() {
               ))}
             </div>
             <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setIngredientDialog(null)}>
-                {t(locale, 'close')}
-              </button>
-              <button className="primary-button" onClick={() => void handleConfirmIngredients()}>
-                {t(locale, 'confirmIngredients')}
-              </button>
+              <button className="secondary-button" onClick={() => setIngredientDialog(null)}>{t(locale, 'close')}</button>
+              <button className="primary-button" onClick={() => void handleConfirmIngredients()}>{t(locale, 'confirmIngredients')}</button>
             </div>
           </div>
         </div>

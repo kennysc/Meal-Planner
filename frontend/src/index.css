@@ -39,11 +39,11 @@
   --surface:         var(--ctp-mantle);
   --surface-strong:  #ffffff;
   --surface-soft:    var(--ctp-crust);
-  --surface-muted:   color-mix(in srgb, var(--ctp-mauve) 10%, transparent);
+  --surface-muted:   color-mix(in srgb, var(--accent) 10%, transparent);
   --surface-overlay: var(--ctp-surface0);
 
   --border:          color-mix(in srgb, var(--ctp-overlay0) 40%, transparent);
-  --border-strong:   color-mix(in srgb, var(--ctp-mauve) 35%, transparent);
+  --border-strong:   color-mix(in srgb, var(--accent) 35%, transparent);
 
   --shadow:          0 4px 24px rgba(76, 79, 105, 0.10);
   --modal-shadow:    0 8px 40px rgba(76, 79, 105, 0.20);
@@ -100,11 +100,11 @@
   --surface:         var(--ctp-mantle);
   --surface-strong:  var(--ctp-surface0);
   --surface-soft:    var(--ctp-crust);
-  --surface-muted:   color-mix(in srgb, var(--ctp-mauve) 15%, transparent);
+  --surface-muted:   color-mix(in srgb, var(--accent) 15%, transparent);
   --surface-overlay: var(--ctp-surface0);
 
   --border:          color-mix(in srgb, var(--ctp-overlay0) 45%, transparent);
-  --border-strong:   color-mix(in srgb, var(--ctp-mauve) 40%, transparent);
+  --border-strong:   color-mix(in srgb, var(--accent) 40%, transparent);
 
   --shadow:          0 4px 24px rgba(0, 0, 0, 0.40);
   --modal-shadow:    0 8px 40px rgba(0, 0, 0, 0.60);

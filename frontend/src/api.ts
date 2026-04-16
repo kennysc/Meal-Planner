@@ -35,6 +35,13 @@ export async function fetchWeeks(locale: Locale) {
   return request<{ weeks: WeekSummary[] }>(`/api/weeks?locale=${locale}`)
 }
 
+export async function createWeek(date: string, locale: Locale) {
+  return request<{ week: Week }>(`/api/weeks?locale=${locale}`, {
+    method: 'POST',
+    body: JSON.stringify({ date }),
+  })
+}
+
 export async function copyPreviousWeek(weekId: string) {
   return request<{ week: { meals: Meal[] } }>(`/api/weeks/${weekId}/copy-previous`, { method: 'POST' })
 }
@@ -74,6 +81,21 @@ export async function createRecipe(payload: {
 }) {
   return request<{ recipe: Recipe }>('/api/recipes', {
     method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateRecipe(recipeId: string, payload: {
+  name: string
+  url?: string
+  notes?: string
+  isFavorite?: boolean
+  isArchived?: boolean
+  tags: string[]
+  ingredients: Array<{ name: string; quantityText?: string; isPantryStaple?: boolean }>
+}) {
+  return request<{ recipe: Recipe }>(`/api/recipes/${recipeId}`, {
+    method: 'PUT',
     body: JSON.stringify(payload),
   })
 }

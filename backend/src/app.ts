@@ -86,6 +86,32 @@ app.get('/api/weeks/:weekId', async (req, res, next) => {
   }
 })
 
+app.post('/api/weeks', async (req, res, next) => {
+  try {
+    const locale = String(req.query.locale ?? 'fr-CA')
+    const bodySchema = z.object({
+      date: z.string().datetime({ offset: true }).or(z.string().date()),
+    })
+    const body = bodySchema.parse(req.body)
+    const week = await ensureWeek(new Date(body.date))
+
+    res.status(201).json({
+      week: {
+        id: week.id,
+        startDate: week.startDate,
+        label: weekLabel(week.startDate, locale),
+        meals: week.mealEntries.map(serializeMealEntry),
+        shoppingList: {
+          id: week.shoppingList?.id,
+          items: week.shoppingList?.items.map(serializeShoppingItem) ?? [],
+        },
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
 app.post('/api/weeks/:weekId/copy-previous', async (req, res, next) => {
   try {
     const currentWeek = await prisma.week.findUniqueOrThrow({ where: { id: req.params.weekId } })

@@ -157,6 +157,10 @@ textarea,
   font-size: 1.1rem;
 }
 
+.planner-header-row {
+  align-items: center;
+}
+
 /* ── Desktop planner grid ───────────────────────────────── */
 .planner-grid {
   display: grid;
@@ -524,8 +528,8 @@ textarea {
   box-shadow: var(--modal-shadow);
 }
 
-.meal-editor-modal {
-  width: min(34rem, 100%);
+.recipe-editor-modal {
+  width: min(40rem, 100%);
 }
 
 .meal-editor-form {
@@ -533,33 +537,78 @@ textarea {
   gap: 0.75rem;
 }
 
+.recipe-editor-meta {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.recipe-name-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.recipe-name-field {
+  position: relative;
+}
+
+.recipe-form-locked {
+  opacity: 0.75;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--ctp-red);
+}
+
+.form-debug {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.recipe-modal-suggestions {
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.35rem);
+}
+
 /* ── Settings modal ─────────────────────────────────────── */
 .settings-modal {
   width: min(26rem, 100%);
 }
 
-.settings-color-grid {
+.settings-copy {
+  margin: 0 0 1rem;
+  color: var(--text-secondary);
+}
+
+.accent-grid {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin: 1rem 0;
 }
 
-.settings-color-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
+.accent-option {
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  border-radius: 16px;
+  padding: 0.75rem;
+  display: flex;
   gap: 0.5rem;
   align-items: center;
+  text-align: left;
+  cursor: pointer;
 }
 
-.settings-color-row label {
-  font-size: 0.88rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.25rem;
-  display: block;
-}
-
-.settings-color-row input[type='text'] {
-  width: 100%;
+.accent-option.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .settings-color-swatch {
@@ -568,6 +617,64 @@ textarea {
   border-radius: 8px;
   border: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.week-picker-modal {
+  width: min(32rem, 100%);
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.calendar-grid-head {
+  margin-bottom: 0.5rem;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.calendar-day-button {
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  border-radius: 16px;
+  min-height: 4.5rem;
+  padding: 0.5rem;
+  display: grid;
+  align-content: space-between;
+  justify-items: start;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.calendar-day-button.today {
+  border-color: var(--accent);
+}
+
+.calendar-day-button.selected {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.calendar-day-button.outside-month {
+  opacity: 0.45;
+}
+
+.calendar-day-button small {
+  font-size: 0.72rem;
 }
 
 /* ── Responsive: compact (≤ 960px) ──────────────────────── */
@@ -618,6 +725,14 @@ textarea {
 
   /* Recipe layout: single column */
   .recipe-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .accent-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recipe-name-row {
     grid-template-columns: 1fr;
   }
 
