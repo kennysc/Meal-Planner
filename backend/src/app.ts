@@ -122,7 +122,7 @@ app.post('/api/weeks/:weekId/copy-previous', async (req, res, next) => {
     })
 
     if (!previousWeek) {
-      res.status(404).json({ message: 'Aucune semaine precedente disponible.' })
+      res.status(404).json({ message: 'Aucune semaine précédente disponible.' })
       return
     }
 
@@ -207,7 +207,7 @@ app.post('/api/weeks/:weekId/meals/:mealId/add-recipe-ingredients', async (req, 
     })
 
     if (!meal.recipe || !meal.week.shoppingList) {
-      res.status(400).json({ message: 'Aucune recette associee a ce repas.' })
+      res.status(400).json({ message: 'Aucune recette associée à ce repas.' })
       return
     }
 
@@ -476,6 +476,7 @@ app.post('/api/recipes', async (req, res, next) => {
           z.object({
             name: z.string().min(1),
             quantityText: z.string().optional(),
+            group: z.string().optional(),
             isPantryStaple: z.boolean().optional(),
           }),
         )
@@ -508,6 +509,7 @@ app.post('/api/recipes', async (req, res, next) => {
               return {
                 ingredientId: ingredientRecord.id,
                 quantityText: ingredient.quantityText ?? '',
+                group: ingredient.group?.trim() || null,
                 sortOrder: index,
                 isPantryStaple: ingredient.isPantryStaple ?? false,
               }
@@ -541,6 +543,7 @@ app.put('/api/recipes/:recipeId', async (req, res, next) => {
           z.object({
             name: z.string().min(1),
             quantityText: z.string().optional(),
+            group: z.string().optional(),
             isPantryStaple: z.boolean().optional(),
           }),
         )
@@ -584,6 +587,7 @@ app.put('/api/recipes/:recipeId', async (req, res, next) => {
               return {
                 ingredientId: ingredientRecord.id,
                 quantityText: ingredient.quantityText ?? '',
+                group: ingredient.group?.trim() || null,
                 sortOrder: index,
                 isPantryStaple: ingredient.isPantryStaple ?? false,
               }

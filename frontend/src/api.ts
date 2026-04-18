@@ -77,7 +77,7 @@ export async function createRecipe(payload: {
   notes?: string
   isFavorite?: boolean
   tags: string[]
-  ingredients: Array<{ name: string; quantityText?: string; isPantryStaple?: boolean }>
+  ingredients: Array<{ name: string; quantityText?: string; group?: string; isPantryStaple?: boolean }>
 }) {
   return request<{ recipe: Recipe }>('/api/recipes', {
     method: 'POST',
@@ -92,7 +92,7 @@ export async function updateRecipe(recipeId: string, payload: {
   isFavorite?: boolean
   isArchived?: boolean
   tags: string[]
-  ingredients: Array<{ name: string; quantityText?: string; isPantryStaple?: boolean }>
+  ingredients: Array<{ name: string; quantityText?: string; group?: string; isPantryStaple?: boolean }>
 }) {
   return request<{ recipe: Recipe }>(`/api/recipes/${recipeId}`, {
     method: 'PUT',

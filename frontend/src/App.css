@@ -427,12 +427,104 @@ textarea {
   flex-wrap: wrap;
 }
 
+.tag-editor {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ingredient-editor {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ingredient-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.ingredient-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 42rem;
+}
+
+.ingredient-table th,
+.ingredient-table td {
+  padding: 0.25rem 0.4rem;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+
+.ingredient-table th {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ingredient-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ingredient-table td input,
+.ingredient-table td select {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.ingredient-table-compact th:last-child,
+.ingredient-table-compact td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.ingredient-remove-button {
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0.15rem;
+}
+
+.recipe-link-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.recipe-link-row input {
+  flex: 1;
+}
+
 .chip,
 .badge {
   border-radius: 999px;
   padding: 0.25rem 0.7rem;
   background: var(--surface-muted);
   color: var(--text-secondary);
+}
+
+.tag-pill {
+  border: none;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+
+.tag-pill:hover {
+  opacity: 0.8;
+}
+
+.tag-pill:disabled {
+  cursor: default;
+  opacity: 1;
 }
 
 .ingredient-list {
@@ -521,6 +613,8 @@ textarea {
   border-radius: 24px;
   padding: 1.5rem;
   box-shadow: var(--modal-shadow);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
 }
 
 .recipe-editor-modal {
@@ -733,6 +827,15 @@ textarea {
 
   .recipe-name-row {
     grid-template-columns: 1fr;
+  }
+
+  .recipe-link-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ingredient-table {
+    min-width: 34rem;
   }
 
   /* Panel header stays horizontal */

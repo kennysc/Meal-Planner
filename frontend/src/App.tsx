@@ -27,10 +27,20 @@ type RecipeDraft = {
   name: string
   url: string
   notes: string
-  tags: string
-  ingredients: string
+  tags: string[]
+  ingredients: IngredientDraft[]
   isFavorite: boolean
 }
+
+type IngredientDraft = {
+  name: string
+  quantity: string
+  unit: string
+  group: string
+}
+
+const COMMON_INGREDIENT_GROUPS = ['Produce', 'Meat', 'Dairy', 'Bakery', 'Frozen', 'Canned', 'Spices', 'Snacks', 'Beverages', 'Garde-manger']
+const PANTRY_GROUPS = new Set(['pantry', 'garde-manger', 'garde manger'])
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const
 const CATPPUCCIN_ACCENTS = [
@@ -50,7 +60,7 @@ const CATPPUCCIN_ACCENTS = [
   'lavender',
 ] as const
 const DEFAULT_ACCENT: Record<Theme, AccentName> = { light: 'mauve', dark: 'mauve' }
-const EMPTY_RECIPE_DRAFT: RecipeDraft = { name: '', url: '', notes: '', tags: '', ingredients: '', isFavorite: false }
+const EMPTY_RECIPE_DRAFT: RecipeDraft = { name: '', url: '', notes: '', tags: [], ingredients: [], isFavorite: false }
 
 function getStoredAccent(theme: Theme) {
   if (typeof window === 'undefined') return DEFAULT_ACCENT[theme]
@@ -65,15 +75,62 @@ function splitList(value: string) {
     .filter(Boolean)
 }
 
+function addDraftTag(tags: string[], value: string) {
+  const nextTag = value.trim()
+  if (!nextTag) return tags
+  if (tags.some((tag) => tag.toLowerCase() === nextTag.toLowerCase())) return tags
+  return [...tags, nextTag]
+}
+
+function toIngredientDraft(ingredient?: Partial<IngredientDraft>): IngredientDraft {
+  return {
+    name: ingredient?.name ?? '',
+    quantity: ingredient?.quantity ?? '',
+    unit: ingredient?.unit ?? '',
+    group: ingredient?.group ?? '',
+  }
+}
+
+function normalizeGroup(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function isPantryGroup(value: string) {
+  return PANTRY_GROUPS.has(normalizeGroup(value))
+}
+
+function splitQuantityText(quantityText: string) {
+  const trimmed = quantityText.trim()
+  if (!trimmed) return { quantity: '', unit: '' }
+
+  const match = trimmed.match(/^([\d¼½¾⅓⅔⅛⅜⅝⅞.,/-]+(?:\s+[\d¼½¾⅓⅔⅛⅜⅝⅞.,/-]+)?)\s+(.*)$/)
+  if (!match) return { quantity: trimmed, unit: '' }
+
+  return {
+    quantity: match[1]?.trim() ?? '',
+    unit: match[2]?.trim() ?? '',
+  }
+}
+
+function joinQuantityUnit(quantity: string, unit: string) {
+  return [quantity.trim(), unit.trim()].filter(Boolean).join(' ')
+}
+
 function recipeToDraft(recipe: Recipe): RecipeDraft {
   return {
     name: recipe.name,
     url: recipe.url ?? '',
     notes: recipe.notes,
-    tags: recipe.tags.map((tag) => tag.name).join(', '),
-    ingredients: recipe.ingredients
-      .map((ingredient) => [ingredient.name, ingredient.quantityText, ingredient.isPantryStaple ? 'pantry' : ''].filter(Boolean).join('|'))
-      .join('\n'),
+    tags: recipe.tags.map((tag) => tag.name),
+    ingredients: recipe.ingredients.map((ingredient) => {
+      const { quantity, unit } = splitQuantityText(ingredient.quantityText)
+      return toIngredientDraft({
+        name: ingredient.name,
+        quantity,
+        unit,
+        group: ingredient.group ?? (ingredient.isPantryStaple ? 'Garde-manger' : ''),
+      })
+    }),
     isFavorite: recipe.isFavorite,
   }
 }
@@ -96,19 +153,15 @@ function parseRecipeDraft(draft: RecipeDraft) {
     url: draft.url.trim(),
     notes: draft.notes.trim(),
     isFavorite: draft.isFavorite,
-    tags: splitList(draft.tags),
+    tags: draft.tags.map((tag) => tag.trim()).filter(Boolean),
     ingredients: draft.ingredients
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [name = '', quantityText = '', pantryFlag = ''] = line.split('|').map((part) => part?.trim() ?? '')
-        return {
-          name,
-          quantityText: quantityText || undefined,
-          isPantryStaple: ['pantry', 'garde-manger', 'true', 'yes', 'oui'].includes(pantryFlag.toLowerCase()),
-        }
-      }),
+      .map((ingredient) => ({
+        name: ingredient.name.trim(),
+        quantityText: joinQuantityUnit(ingredient.quantity, ingredient.unit) || undefined,
+        group: ingredient.group.trim() || undefined,
+        isPantryStaple: isPantryGroup(ingredient.group),
+      }))
+      .filter((ingredient) => ingredient.name),
   }
 }
 
@@ -168,6 +221,7 @@ function App() {
   const [recipeModalSaving, setRecipeModalSaving] = useState(false)
   const [recipeModalError, setRecipeModalError] = useState<string | null>(null)
   const [recipeModalDebug, setRecipeModalDebug] = useState('idle')
+  const [recipeModalTagDraft, setRecipeModalTagDraft] = useState('')
   const [weekPickerOpen, setWeekPickerOpen] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()))
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
@@ -178,7 +232,12 @@ function App() {
   const [ingredientSearch, setIngredientSearch] = useState('')
   const [ingredientMode, setIngredientMode] = useState<'any' | 'all'>('any')
   const [shoppingDraft, setShoppingDraft] = useState('')
-  const [recipeForm, setRecipeForm] = useState<RecipeDraft>({ ...EMPTY_RECIPE_DRAFT, ingredients: 'Poulet|2 poitrines' })
+  const [recipeForm, setRecipeForm] = useState<RecipeDraft>({
+    ...EMPTY_RECIPE_DRAFT,
+    ingredients: [toIngredientDraft({ name: 'Poulet', quantity: '2', unit: 'poitrines' })],
+  })
+  const [recipeFormTagDraft, setRecipeFormTagDraft] = useState('')
+  const [activeGroupQuery, setActiveGroupQuery] = useState('')
   const recipeModalSelectedRecipeRef = useRef<Recipe | null>(null)
   const recipeSuggestionRequestRef = useRef(0)
 
@@ -375,6 +434,8 @@ function App() {
     recipeSuggestionRequestRef.current += 1
     setRecipeModalSuggestions([])
     setRecipeModalError(null)
+    setRecipeModalTagDraft('')
+    setActiveGroupQuery('')
     setRecipeDebug(`opened meal editor ${mealId}`)
 
     if (meal.recipe) {
@@ -390,8 +451,8 @@ function App() {
       name: meal.title,
       url: meal.recipeUrl ?? '',
       notes: meal.notes,
-      tags: '',
-      ingredients: '',
+      tags: [],
+      ingredients: [toIngredientDraft()],
       isFavorite: false,
     })
     setRecipeModalRecipeId(null)
@@ -425,6 +486,70 @@ function App() {
     setRecipeModalSuggestions([])
     setRecipeModalSaving(false)
     setRecipeModalError(null)
+    setRecipeModalTagDraft('')
+    setActiveGroupQuery('')
+  }
+
+  function commitRecipeFormTag() {
+    setRecipeForm((current) => ({ ...current, tags: addDraftTag(current.tags, recipeFormTagDraft) }))
+    setRecipeFormTagDraft('')
+  }
+
+  function removeRecipeFormTag(tagToRemove: string) {
+    setRecipeForm((current) => ({ ...current, tags: current.tags.filter((tag) => tag !== tagToRemove) }))
+  }
+
+  function commitRecipeModalTag() {
+    setRecipeModalDraft((current) => ({ ...current, tags: addDraftTag(current.tags, recipeModalTagDraft) }))
+    setRecipeModalTagDraft('')
+  }
+
+  function removeRecipeModalTag(tagToRemove: string) {
+    setRecipeModalDraft((current) => ({ ...current, tags: current.tags.filter((tag) => tag !== tagToRemove) }))
+  }
+
+  function updateRecipeFormIngredient(index: number, field: keyof IngredientDraft, value: string) {
+    setRecipeForm((current) => ({
+      ...current,
+      ingredients: current.ingredients.map((ingredient, ingredientIndex) => (
+        ingredientIndex === index ? { ...ingredient, [field]: value } : ingredient
+      )),
+    }))
+  }
+
+  function addRecipeFormIngredient() {
+    setRecipeForm((current) => ({ ...current, ingredients: [...current.ingredients, toIngredientDraft()] }))
+  }
+
+  function removeRecipeFormIngredient(index: number) {
+    setRecipeForm((current) => ({
+      ...current,
+      ingredients: current.ingredients.length === 1
+        ? [toIngredientDraft()]
+        : current.ingredients.filter((_, ingredientIndex) => ingredientIndex !== index),
+    }))
+  }
+
+  function updateRecipeModalIngredient(index: number, field: keyof IngredientDraft, value: string) {
+    setRecipeModalDraft((current) => ({
+      ...current,
+      ingredients: current.ingredients.map((ingredient, ingredientIndex) => (
+        ingredientIndex === index ? { ...ingredient, [field]: value } : ingredient
+      )),
+    }))
+  }
+
+  function addRecipeModalIngredient() {
+    setRecipeModalDraft((current) => ({ ...current, ingredients: [...current.ingredients, toIngredientDraft()] }))
+  }
+
+  function removeRecipeModalIngredient(index: number) {
+    setRecipeModalDraft((current) => ({
+      ...current,
+      ingredients: current.ingredients.length === 1
+        ? [toIngredientDraft()]
+        : current.ingredients.filter((_, ingredientIndex) => ingredientIndex !== index),
+    }))
   }
 
   async function handleRecipeNameBlur() {
@@ -662,6 +787,15 @@ function App() {
   const currentMobileTab = activeTab === 'planner' ? 'dinner' : (mobilePlannerTabs.includes(activeTab as MobileTab) ? activeTab as MobileTab : 'dinner')
   const today = new Date()
   const calendarDays = buildCalendarDays(calendarMonth)
+  const ingredientGroupSuggestions = Array.from(new Set([
+    ...COMMON_INGREDIENT_GROUPS,
+    ...recipes.flatMap((recipe) => recipe.ingredients.map((ingredient) => ingredient.group ?? '')).filter(Boolean),
+    ...recipeForm.ingredients.map((ingredient) => ingredient.group.trim()).filter(Boolean),
+    ...recipeModalDraft.ingredients.map((ingredient) => ingredient.group.trim()).filter(Boolean),
+  ])).sort((left, right) => left.localeCompare(right, locale))
+  const filteredIngredientGroupSuggestions = ingredientGroupSuggestions
+    .filter((group) => !activeGroupQuery.trim() || normalizeGroup(group).includes(normalizeGroup(activeGroupQuery)))
+    .slice(0, 8)
 
   function renderMealCard(meal: Meal) {
     const title = mealDisplayTitle(meal)
@@ -909,8 +1043,93 @@ function App() {
                   <input value={recipeForm.name} placeholder={t(locale, 'mealName')} onChange={(event) => setRecipeForm((current) => ({ ...current, name: event.target.value }))} />
                   <input value={recipeForm.url} placeholder={t(locale, 'recipeUrl')} onChange={(event) => setRecipeForm((current) => ({ ...current, url: event.target.value }))} />
                   <textarea value={recipeForm.notes} rows={3} placeholder={t(locale, 'notes')} onChange={(event) => setRecipeForm((current) => ({ ...current, notes: event.target.value }))} />
-                  <input value={recipeForm.tags} placeholder="Rapide, BBQ, Familial" onChange={(event) => setRecipeForm((current) => ({ ...current, tags: event.target.value }))} />
-                  <textarea value={recipeForm.ingredients} rows={5} placeholder={'Poulet|2 poitrines\nRiz|2 tasses'} onChange={(event) => setRecipeForm((current) => ({ ...current, ingredients: event.target.value }))} />
+                  <div className="tag-editor">
+                    <div className="shopping-entry-row">
+                      <input
+                        value={recipeFormTagDraft}
+                        placeholder={t(locale, 'tags')}
+                        onChange={(event) => setRecipeFormTagDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return
+                          event.preventDefault()
+                          commitRecipeFormTag()
+                        }}
+                      />
+                      <button className="secondary-button icon-button" onClick={commitRecipeFormTag} aria-label={t(locale, 'add')} title={t(locale, 'add')}>
+                        <span aria-hidden="true">+</span>
+                      </button>
+                    </div>
+                    {recipeForm.tags.length > 0 ? (
+                      <div className="chip-row">
+                        {recipeForm.tags.map((tag) => (
+                          <button key={tag} className="tag-pill" onClick={() => removeRecipeFormTag(tag)}>
+                            <span>{tag}</span>
+                            <span aria-hidden="true">×</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="ingredient-editor">
+                    <div className="ingredient-table-wrap">
+                    <table className="ingredient-table ingredient-table-compact">
+                      <thead>
+                        <tr>
+                          <th>{t(locale, 'ingredient')}</th>
+                          <th>{t(locale, 'quantity')}</th>
+                          <th>{t(locale, 'unit')}</th>
+                          <th>{t(locale, 'group')}</th>
+                          <th aria-label={t(locale, 'close')}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recipeForm.ingredients.map((ingredient, index) => (
+                          <tr key={`recipe-form-ingredient-${index}`}>
+                            <td>
+                              <input
+                                value={ingredient.name}
+                                placeholder={t(locale, 'ingredient')}
+                                onChange={(event) => updateRecipeFormIngredient(index, 'name', event.target.value)}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                value={ingredient.quantity}
+                                placeholder={t(locale, 'quantity')}
+                                onChange={(event) => updateRecipeFormIngredient(index, 'quantity', event.target.value)}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                value={ingredient.unit}
+                                placeholder={t(locale, 'unit')}
+                                onChange={(event) => updateRecipeFormIngredient(index, 'unit', event.target.value)}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                value={ingredient.group}
+                                list="ingredient-group-options"
+                                placeholder={t(locale, 'group')}
+                                onFocus={(event) => setActiveGroupQuery(event.target.value)}
+                                onChange={(event) => {
+                                  setActiveGroupQuery(event.target.value)
+                                  updateRecipeFormIngredient(index, 'group', event.target.value)
+                                }}
+                              />
+                            </td>
+                            <td>
+                              <button className="ghost-button ingredient-remove-button" onClick={() => removeRecipeFormIngredient(index)} aria-label={t(locale, 'close')} title={t(locale, 'close')}>
+                                ×
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    </div>
+                    <button className="secondary-button" onClick={addRecipeFormIngredient}>{t(locale, 'add')}</button>
+                  </div>
                   <label className="checkbox-row">
                     <input type="checkbox" checked={recipeForm.isFavorite} onChange={(event) => setRecipeForm((current) => ({ ...current, isFavorite: event.target.checked }))} />
                     <span>{t(locale, 'favorite')}</span>
@@ -984,6 +1203,10 @@ function App() {
         </main>
       )}
 
+      <datalist id="ingredient-group-options">
+        {filteredIngredientGroupSuggestions.map((group) => <option key={group} value={group} />)}
+      </datalist>
+
       {editingMeal ? (
         <div className="modal-backdrop">
           <div className="modal-card recipe-editor-modal">
@@ -1028,12 +1251,17 @@ function App() {
                   </div>
                 ) : null}
               </div>
-              <input
-                value={recipeModalDraft.url}
-                placeholder={t(locale, 'recipeUrl')}
-                readOnly={recipeModalLocked}
-                onChange={(event) => setRecipeModalDraft((current) => ({ ...current, url: event.target.value }))}
-              />
+              <div className="recipe-link-row">
+                {recipeModalDraft.url ? (
+                  <a className="link-button" href={recipeModalDraft.url} target="_blank" rel="noreferrer">{t(locale, 'open')}</a>
+                ) : null}
+                <input
+                  value={recipeModalDraft.url}
+                  placeholder={t(locale, 'recipeUrl')}
+                  readOnly={recipeModalLocked}
+                  onChange={(event) => setRecipeModalDraft((current) => ({ ...current, url: event.target.value }))}
+                />
+              </div>
               <textarea
                 value={recipeModalDraft.notes}
                 placeholder={t(locale, 'notes')}
@@ -1041,19 +1269,98 @@ function App() {
                 readOnly={recipeModalLocked}
                 onChange={(event) => setRecipeModalDraft((current) => ({ ...current, notes: event.target.value }))}
               />
-              <input
-                value={recipeModalDraft.tags}
-                placeholder={t(locale, 'tags')}
-                readOnly={recipeModalLocked}
-                onChange={(event) => setRecipeModalDraft((current) => ({ ...current, tags: event.target.value }))}
-              />
-              <textarea
-                value={recipeModalDraft.ingredients}
-                placeholder={'Poulet|2 poitrines\nRiz|2 tasses\nBeurre||pantry'}
-                rows={6}
-                readOnly={recipeModalLocked}
-                onChange={(event) => setRecipeModalDraft((current) => ({ ...current, ingredients: event.target.value }))}
-              />
+               <div className="tag-editor">
+                 <div className="shopping-entry-row">
+                   <input
+                     value={recipeModalTagDraft}
+                     placeholder={t(locale, 'tags')}
+                     readOnly={recipeModalLocked}
+                     onChange={(event) => setRecipeModalTagDraft(event.target.value)}
+                     onKeyDown={(event) => {
+                       if (event.key !== 'Enter' || recipeModalLocked) return
+                       event.preventDefault()
+                       commitRecipeModalTag()
+                     }}
+                   />
+                   <button className="secondary-button icon-button" onClick={commitRecipeModalTag} disabled={recipeModalLocked} aria-label={t(locale, 'add')} title={t(locale, 'add')}>
+                     <span aria-hidden="true">+</span>
+                   </button>
+                 </div>
+                 {recipeModalDraft.tags.length > 0 ? (
+                   <div className="chip-row">
+                     {recipeModalDraft.tags.map((tag) => (
+                       <button key={tag} className="tag-pill" onClick={() => removeRecipeModalTag(tag)} disabled={recipeModalLocked}>
+                         <span>{tag}</span>
+                         <span aria-hidden="true">×</span>
+                       </button>
+                     ))}
+                   </div>
+                 ) : null}
+               </div>
+               <div className="ingredient-editor">
+                 <div className="ingredient-table-wrap">
+                 <table className="ingredient-table ingredient-table-compact">
+                   <thead>
+                     <tr>
+                       <th>{t(locale, 'ingredient')}</th>
+                       <th>{t(locale, 'quantity')}</th>
+                       <th>{t(locale, 'unit')}</th>
+                       <th>{t(locale, 'group')}</th>
+                       <th aria-label={t(locale, 'close')}></th>
+                     </tr>
+                   </thead>
+                   <tbody>
+                     {recipeModalDraft.ingredients.map((ingredient, index) => (
+                       <tr key={`recipe-modal-ingredient-${index}`}>
+                         <td>
+                           <input
+                             value={ingredient.name}
+                             placeholder={t(locale, 'ingredient')}
+                             readOnly={recipeModalLocked}
+                             onChange={(event) => updateRecipeModalIngredient(index, 'name', event.target.value)}
+                           />
+                         </td>
+                         <td>
+                           <input
+                             value={ingredient.quantity}
+                             placeholder={t(locale, 'quantity')}
+                             readOnly={recipeModalLocked}
+                             onChange={(event) => updateRecipeModalIngredient(index, 'quantity', event.target.value)}
+                           />
+                         </td>
+                         <td>
+                           <input
+                             value={ingredient.unit}
+                             placeholder={t(locale, 'unit')}
+                             readOnly={recipeModalLocked}
+                             onChange={(event) => updateRecipeModalIngredient(index, 'unit', event.target.value)}
+                           />
+                         </td>
+                         <td>
+                           <input
+                             value={ingredient.group}
+                             list="ingredient-group-options"
+                             placeholder={t(locale, 'group')}
+                             readOnly={recipeModalLocked}
+                             onFocus={(event) => setActiveGroupQuery(event.target.value)}
+                             onChange={(event) => {
+                               setActiveGroupQuery(event.target.value)
+                               updateRecipeModalIngredient(index, 'group', event.target.value)
+                             }}
+                           />
+                         </td>
+                         <td>
+                           <button className="ghost-button ingredient-remove-button" onClick={() => removeRecipeModalIngredient(index)} disabled={recipeModalLocked} aria-label={t(locale, 'close')} title={t(locale, 'close')}>
+                             ×
+                           </button>
+                         </td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+                 </div>
+                 <button className="secondary-button" onClick={addRecipeModalIngredient} disabled={recipeModalLocked}>{t(locale, 'add')}</button>
+               </div>
               <label className={recipeModalLocked ? 'checkbox-row recipe-form-locked' : 'checkbox-row'}>
                 <input
                   type="checkbox"
@@ -1067,11 +1374,6 @@ function App() {
             {recipeModalError ? <p className="form-error">{recipeModalError}</p> : null}
             <p className="form-debug">{recipeModalDebug}</p>
             <div className="modal-actions">
-              {recipeModalDraft.url ? (
-                <a className="link-button icon-button" href={recipeModalDraft.url} target="_blank" rel="noreferrer" aria-label={t(locale, 'openRecipe')} title={t(locale, 'openRecipe')}>
-                  <span aria-hidden="true">↗</span>
-                </a>
-              ) : null}
               <button className="secondary-button" onClick={closeMealEditor}>{t(locale, 'close')}</button>
               <button className={recipeModalSaving ? 'primary-button is-disabled' : 'primary-button'} onClick={() => void handleMealRecipeSave()} disabled={recipeModalSaving}>
                 {recipeModalSaving ? `${t(locale, 'save')}...` : t(locale, 'save')}

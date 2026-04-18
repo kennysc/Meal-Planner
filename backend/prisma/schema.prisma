@@ -108,6 +108,7 @@ model RecipeIngredient {
   recipeId      String
   ingredientId  String
   quantityText  String     @default("")
+  group         String?
   sortOrder     Int        @default(0)
   isPantryStaple Boolean   @default(false)
   recipe        Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)

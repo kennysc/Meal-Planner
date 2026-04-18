@@ -26,6 +26,7 @@ export type RecipeIngredient = {
   ingredientId: string
   name: string
   quantityText: string
+  group: string | null
   isPantryStaple: boolean
 }
 

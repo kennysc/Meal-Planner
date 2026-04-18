@@ -11,18 +11,18 @@ const dayLabels: Record<DayOfWeek, string> = {
 }
 
 const mealLabels: Record<MealType, string> = {
-  DINNER: 'Diner',
+  DINNER: 'Dîner',
   SUPPER: 'Souper',
 }
 
 const statusLabels: Record<MealStatus, string> = {
-  PLANNED: 'Planifie',
-  MADE: 'Prepare',
-  SKIPPED: 'Annule',
+  PLANNED: 'Planifié',
+  MADE: 'Préparé',
+  SKIPPED: 'Annulé',
 }
 
 const sectionLabels: Record<ShoppingSection, string> = {
-  PRODUCE: 'Fruits et legumes',
+  PRODUCE: 'Fruits et légumes',
   MEAT: 'Viandes',
   DAIRY: 'Produits laitiers',
   PANTRY: 'Garde-manger',
@@ -47,6 +47,7 @@ export function serializeRecipe(recipe: any) {
         ingredientId: recipeIngredient.ingredientId,
         name: recipeIngredient.ingredient.name,
         quantityText: recipeIngredient.quantityText,
+        group: recipeIngredient.group,
         isPantryStaple: recipeIngredient.isPantryStaple,
       })) ?? [],
   }
