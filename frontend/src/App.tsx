@@ -78,6 +78,14 @@ function recipeToDraft(recipe: Recipe): RecipeDraft {
   }
 }
 
+function mealHasContent(meal: Meal) {
+  return Boolean(meal.title.trim() || meal.notes.trim() || meal.recipeUrl || meal.recipe)
+}
+
+function mealDisplayTitle(meal: Meal) {
+  return meal.title.trim()
+}
+
 function emptyRecipeDraftWithName(name: string): RecipeDraft {
   return { ...EMPTY_RECIPE_DRAFT, name }
 }
@@ -151,7 +159,7 @@ function App() {
   const [ingredientDialog, setIngredientDialog] = useState<{ mealId: string; recipe: Recipe } | null>(null)
   const [ingredientConfirmDialog, setIngredientConfirmDialog] = useState<{ mealId: string; recipe: Recipe } | null>(null)
   const [selectedIngredientIds, setSelectedIngredientIds] = useState<string[]>([])
-  const [linkConfirmMeal, setLinkConfirmMeal] = useState<Meal | null>(null)
+  const [mealActionMeal, setMealActionMeal] = useState<Meal | null>(null)
   const [editingMealId, setEditingMealId] = useState<string | null>(null)
   const [recipeModalDraft, setRecipeModalDraft] = useState<RecipeDraft>(EMPTY_RECIPE_DRAFT)
   const [recipeModalRecipeId, setRecipeModalRecipeId] = useState<string | null>(null)
@@ -388,6 +396,22 @@ function App() {
     })
     setRecipeModalRecipeId(null)
     setRecipeModalLocked(false)
+  }
+
+  function handleMealTileClick(meal: Meal) {
+    if (!mealHasContent(meal)) {
+      openMealEditor(meal.id)
+      return
+    }
+
+    setMealActionMeal(meal)
+  }
+
+  function handleMealActionEdit() {
+    if (!mealActionMeal) return
+    const mealId = mealActionMeal.id
+    setMealActionMeal(null)
+    openMealEditor(mealId)
   }
 
   function closeMealEditor() {
@@ -640,24 +664,16 @@ function App() {
   const calendarDays = buildCalendarDays(calendarMonth)
 
   function renderMealCard(meal: Meal) {
+    const title = mealDisplayTitle(meal)
+
     return (
       <div
         key={meal.id}
-        className={meal.recipeUrl ? 'meal-card meal-card-clickable' : 'meal-card'}
-        onClick={() => { if (meal.recipeUrl) setLinkConfirmMeal(meal) }}
+        className="meal-card meal-card-clickable"
+        onClick={() => handleMealTileClick(meal)}
       >
         <div className="meal-summary">
-          <strong>{meal.title.trim() || t(locale, 'mealName')}</strong>
-        </div>
-        <div className="meal-card-actions">
-          <button
-            className="secondary-button icon-button"
-            onClick={(event) => { event.stopPropagation(); openMealEditor(meal.id) }}
-            aria-label={t(locale, 'edit')}
-            title={t(locale, 'edit')}
-          >
-            <span aria-hidden="true">✎</span>
-          </button>
+          {title ? <strong>{title}</strong> : null}
         </div>
       </div>
     )
@@ -1151,16 +1167,19 @@ function App() {
         </div>
       ) : null}
 
-      {linkConfirmMeal ? (
+      {mealActionMeal ? (
         <div className="modal-backdrop">
-          <div className="modal-card">
-            <p>{t(locale, 'openLinkConfirm')}</p>
-            <p><strong>{linkConfirmMeal.title}</strong></p>
+          <div className="modal-card meal-action-modal">
+            <p>{t(locale, 'mealActionPrompt')}</p>
+            <p><strong>{mealDisplayTitle(mealActionMeal)}</strong></p>
             <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setLinkConfirmMeal(null)}>{t(locale, 'close')}</button>
-              <a className="primary-button" href={linkConfirmMeal.recipeUrl ?? ''} target="_blank" rel="noreferrer" onClick={() => setLinkConfirmMeal(null)}>
-                {t(locale, 'open')}
-              </a>
+              <button className="secondary-button" onClick={() => setMealActionMeal(null)}>{t(locale, 'close')}</button>
+              <button className="secondary-button" onClick={handleMealActionEdit}>{t(locale, 'editMeal')}</button>
+              {mealActionMeal.recipeUrl ? (
+                <a className="primary-button" href={mealActionMeal.recipeUrl} target="_blank" rel="noreferrer" onClick={() => setMealActionMeal(null)}>
+                  {t(locale, 'open')}
+                </a>
+              ) : null}
             </div>
           </div>
         </div>

@@ -223,12 +223,7 @@ textarea,
   gap: 0.45rem;
   min-width: 0;
   flex: 1;
-}
-
-.meal-card-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-shrink: 0;
+  min-height: 1.25rem;
 }
 
 .meal-summary strong {
@@ -530,6 +525,10 @@ textarea {
 
 .recipe-editor-modal {
   width: min(40rem, 100%);
+}
+
+.meal-action-modal {
+  width: min(28rem, 100%);
 }
 
 .meal-editor-form {
