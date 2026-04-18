@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react'
 import './App.css'
 import {
   addRecipeIngredients,
@@ -39,7 +39,12 @@ type IngredientDraft = {
   group: string
 }
 
-const COMMON_INGREDIENT_GROUPS = ['Produce', 'Meat', 'Dairy', 'Bakery', 'Frozen', 'Canned', 'Spices', 'Snacks', 'Beverages', 'Garde-manger']
+type ActiveEditorField = {
+  scope: 'form' | 'modal'
+  kind: 'ingredient' | 'group' | 'tag'
+  index?: number
+} | null
+
 const PANTRY_GROUPS = new Set(['pantry', 'garde-manger', 'garde manger'])
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const
@@ -82,6 +87,15 @@ function addDraftTag(tags: string[], value: string) {
   return [...tags, nextTag]
 }
 
+function isIngredientDraftEmpty(ingredient: IngredientDraft) {
+  return !ingredient.name.trim() && !ingredient.quantity.trim() && !ingredient.unit.trim() && !ingredient.group.trim()
+}
+
+function ensureEditableIngredientRows(ingredients: IngredientDraft[]) {
+  const filledIngredients = ingredients.filter((ingredient) => !isIngredientDraftEmpty(ingredient))
+  return [...filledIngredients, toIngredientDraft()]
+}
+
 function toIngredientDraft(ingredient?: Partial<IngredientDraft>): IngredientDraft {
   return {
     name: ingredient?.name ?? '',
@@ -92,6 +106,10 @@ function toIngredientDraft(ingredient?: Partial<IngredientDraft>): IngredientDra
 }
 
 function normalizeGroup(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function normalizeIngredientName(value: string) {
   return value.trim().toLowerCase()
 }
 
@@ -114,6 +132,31 @@ function splitQuantityText(quantityText: string) {
 
 function joinQuantityUnit(quantity: string, unit: string) {
   return [quantity.trim(), unit.trim()].filter(Boolean).join(' ')
+}
+
+function autoResizeTextarea(event: FormEvent<HTMLTextAreaElement>) {
+  const element = event.currentTarget
+  element.style.height = '0px'
+  element.style.height = `${element.scrollHeight}px`
+}
+
+function applyKnownIngredientDefaults(ingredient: IngredientDraft, knownIngredient?: { unit: string; group: string }) {
+  if (!knownIngredient) return ingredient
+  return {
+    ...ingredient,
+    unit: ingredient.unit.trim() ? ingredient.unit : knownIngredient.unit,
+    group: ingredient.group.trim() ? ingredient.group : knownIngredient.group,
+  }
+}
+
+function normalizeTag(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function commonIngredientGroups(locale: Locale) {
+  return locale === 'fr-CA'
+    ? ['Fruits et legumes', 'Viandes', 'Produits laitiers', 'Boulangerie', 'Surgelés', 'Conserves', 'Épices', 'Collations', 'Boissons', 'Garde-manger']
+    : ['Produce', 'Meat', 'Dairy', 'Bakery', 'Frozen', 'Canned', 'Spices', 'Snacks', 'Beverages', 'Pantry']
 }
 
 function recipeToDraft(recipe: Recipe): RecipeDraft {
@@ -144,7 +187,7 @@ function mealDisplayTitle(meal: Meal) {
 }
 
 function emptyRecipeDraftWithName(name: string): RecipeDraft {
-  return { ...EMPTY_RECIPE_DRAFT, name }
+  return { ...EMPTY_RECIPE_DRAFT, name, ingredients: [toIngredientDraft()] }
 }
 
 function parseRecipeDraft(draft: RecipeDraft) {
@@ -220,8 +263,8 @@ function App() {
   const [recipeModalSuggestions, setRecipeModalSuggestions] = useState<Suggestion[]>([])
   const [recipeModalSaving, setRecipeModalSaving] = useState(false)
   const [recipeModalError, setRecipeModalError] = useState<string | null>(null)
-  const [recipeModalDebug, setRecipeModalDebug] = useState('idle')
   const [recipeModalTagDraft, setRecipeModalTagDraft] = useState('')
+  const [recipeModalTagEditing, setRecipeModalTagEditing] = useState(false)
   const [weekPickerOpen, setWeekPickerOpen] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()))
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
@@ -234,16 +277,33 @@ function App() {
   const [shoppingDraft, setShoppingDraft] = useState('')
   const [recipeForm, setRecipeForm] = useState<RecipeDraft>({
     ...EMPTY_RECIPE_DRAFT,
-    ingredients: [toIngredientDraft({ name: 'Poulet', quantity: '2', unit: 'poitrines' })],
+    ingredients: [toIngredientDraft()],
   })
   const [recipeFormTagDraft, setRecipeFormTagDraft] = useState('')
+  const [recipeFormTagEditing, setRecipeFormTagEditing] = useState(false)
   const [activeGroupQuery, setActiveGroupQuery] = useState('')
+  const [activeIngredientQuery, setActiveIngredientQuery] = useState('')
+  const [activeEditorField, setActiveEditorField] = useState<ActiveEditorField>(null)
   const recipeModalSelectedRecipeRef = useRef<Recipe | null>(null)
   const recipeSuggestionRequestRef = useRef(0)
+  const editorBlurTimeoutRef = useRef<number | null>(null)
 
   function setRecipeDebug(message: string) {
     console.log('[recipe-modal]', message)
-    setRecipeModalDebug(message)
+  }
+
+  function cancelEditorBlur() {
+    if (editorBlurTimeoutRef.current === null) return
+    window.clearTimeout(editorBlurTimeoutRef.current)
+    editorBlurTimeoutRef.current = null
+  }
+
+  function scheduleEditorBlur() {
+    cancelEditorBlur()
+    editorBlurTimeoutRef.current = window.setTimeout(() => {
+      setActiveEditorField(null)
+      editorBlurTimeoutRef.current = null
+    }, 120)
   }
 
   useEffect(() => {
@@ -259,6 +319,14 @@ function App() {
     const accent = theme === 'dark' ? darkAccent : lightAccent
     document.documentElement.style.setProperty('--accent', `var(--ctp-${accent})`)
   }, [theme, darkAccent, lightAccent])
+
+  useEffect(() => {
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>('.ingredient-table-textarea')
+    textareas.forEach((element) => {
+      element.style.height = '0px'
+      element.style.height = `${element.scrollHeight}px`
+    })
+  }, [recipeForm.ingredients, recipeModalDraft.ingredients, recipeModalLocked])
 
   async function loadDashboard(nextLocale: Locale) {
     setLoading(true)
@@ -435,7 +503,10 @@ function App() {
     setRecipeModalSuggestions([])
     setRecipeModalError(null)
     setRecipeModalTagDraft('')
+    setRecipeModalTagEditing(false)
     setActiveGroupQuery('')
+    setActiveIngredientQuery('')
+    setActiveEditorField(null)
     setRecipeDebug(`opened meal editor ${mealId}`)
 
     if (meal.recipe) {
@@ -487,12 +558,17 @@ function App() {
     setRecipeModalSaving(false)
     setRecipeModalError(null)
     setRecipeModalTagDraft('')
+    setRecipeModalTagEditing(false)
     setActiveGroupQuery('')
+    setActiveIngredientQuery('')
+    setActiveEditorField(null)
   }
 
   function commitRecipeFormTag() {
     setRecipeForm((current) => ({ ...current, tags: addDraftTag(current.tags, recipeFormTagDraft) }))
     setRecipeFormTagDraft('')
+    setRecipeFormTagEditing(false)
+    setActiveEditorField(null)
   }
 
   function removeRecipeFormTag(tagToRemove: string) {
@@ -502,53 +578,110 @@ function App() {
   function commitRecipeModalTag() {
     setRecipeModalDraft((current) => ({ ...current, tags: addDraftTag(current.tags, recipeModalTagDraft) }))
     setRecipeModalTagDraft('')
+    setRecipeModalTagEditing(false)
+    setActiveEditorField(null)
   }
 
   function removeRecipeModalTag(tagToRemove: string) {
     setRecipeModalDraft((current) => ({ ...current, tags: current.tags.filter((tag) => tag !== tagToRemove) }))
   }
 
+  function handleRecipeFormTagBlur() {
+    if (recipeFormTagDraft.trim()) commitRecipeFormTag()
+    else {
+      setRecipeFormTagEditing(false)
+      setActiveEditorField(null)
+    }
+  }
+
+  function handleRecipeModalTagBlur() {
+    if (recipeModalTagDraft.trim()) commitRecipeModalTag()
+    else {
+      setRecipeModalTagEditing(false)
+      setActiveEditorField(null)
+    }
+  }
+
+  function beginRecipeFormTagEdit() {
+    setRecipeFormTagEditing(true)
+    setRecipeFormTagDraft('')
+    setActiveEditorField({ scope: 'form', kind: 'tag' })
+  }
+
+  function beginRecipeModalTagEdit() {
+    setRecipeModalTagEditing(true)
+    setRecipeModalTagDraft('')
+    setActiveEditorField({ scope: 'modal', kind: 'tag' })
+  }
+
   function updateRecipeFormIngredient(index: number, field: keyof IngredientDraft, value: string) {
     setRecipeForm((current) => ({
       ...current,
-      ingredients: current.ingredients.map((ingredient, ingredientIndex) => (
-        ingredientIndex === index ? { ...ingredient, [field]: value } : ingredient
-      )),
+      ingredients: ensureEditableIngredientRows(current.ingredients.map((ingredient, ingredientIndex) => (
+        ingredientIndex === index
+          ? (() => {
+              const nextIngredient = { ...ingredient, [field]: value }
+              if (field !== 'name') return nextIngredient
+              return applyKnownIngredientDefaults(nextIngredient, knownIngredients.find((item) => normalizeIngredientName(item.name) === normalizeIngredientName(value)))
+            })()
+          : ingredient
+      ))),
     }))
-  }
-
-  function addRecipeFormIngredient() {
-    setRecipeForm((current) => ({ ...current, ingredients: [...current.ingredients, toIngredientDraft()] }))
   }
 
   function removeRecipeFormIngredient(index: number) {
     setRecipeForm((current) => ({
       ...current,
-      ingredients: current.ingredients.length === 1
-        ? [toIngredientDraft()]
-        : current.ingredients.filter((_, ingredientIndex) => ingredientIndex !== index),
+      ingredients: ensureEditableIngredientRows(current.ingredients.filter((_, ingredientIndex) => ingredientIndex !== index)),
     }))
   }
 
   function updateRecipeModalIngredient(index: number, field: keyof IngredientDraft, value: string) {
     setRecipeModalDraft((current) => ({
       ...current,
-      ingredients: current.ingredients.map((ingredient, ingredientIndex) => (
-        ingredientIndex === index ? { ...ingredient, [field]: value } : ingredient
-      )),
+      ingredients: ensureEditableIngredientRows(current.ingredients.map((ingredient, ingredientIndex) => (
+        ingredientIndex === index
+          ? (() => {
+              const nextIngredient = { ...ingredient, [field]: value }
+              if (field !== 'name') return nextIngredient
+              return applyKnownIngredientDefaults(nextIngredient, knownIngredients.find((item) => normalizeIngredientName(item.name) === normalizeIngredientName(value)))
+            })()
+          : ingredient
+      ))),
     }))
   }
 
-  function addRecipeModalIngredient() {
-    setRecipeModalDraft((current) => ({ ...current, ingredients: [...current.ingredients, toIngredientDraft()] }))
+  function applyIngredientSuggestion(scope: 'form' | 'modal', index: number, name: string) {
+    setActiveIngredientQuery(name)
+    if (scope === 'form') updateRecipeFormIngredient(index, 'name', name)
+    else updateRecipeModalIngredient(index, 'name', name)
+  }
+
+  function applyGroupSuggestion(scope: 'form' | 'modal', index: number, group: string) {
+    setActiveGroupQuery(group)
+    if (scope === 'form') updateRecipeFormIngredient(index, 'group', group)
+    else updateRecipeModalIngredient(index, 'group', group)
+  }
+
+  function applyTagSuggestion(scope: 'form' | 'modal', tag: string) {
+    if (scope === 'form') {
+      setRecipeFormTagDraft(tag)
+      setRecipeForm((current) => ({ ...current, tags: addDraftTag(current.tags, tag) }))
+      setRecipeFormTagDraft('')
+      setRecipeFormTagEditing(false)
+    } else {
+      setRecipeModalTagDraft(tag)
+      setRecipeModalDraft((current) => ({ ...current, tags: addDraftTag(current.tags, tag) }))
+      setRecipeModalTagDraft('')
+      setRecipeModalTagEditing(false)
+    }
+    setActiveEditorField(null)
   }
 
   function removeRecipeModalIngredient(index: number) {
     setRecipeModalDraft((current) => ({
       ...current,
-      ingredients: current.ingredients.length === 1
-        ? [toIngredientDraft()]
-        : current.ingredients.filter((_, ingredientIndex) => ingredientIndex !== index),
+      ingredients: ensureEditableIngredientRows(current.ingredients.filter((_, ingredientIndex) => ingredientIndex !== index)),
     }))
   }
 
@@ -788,7 +921,7 @@ function App() {
   const today = new Date()
   const calendarDays = buildCalendarDays(calendarMonth)
   const ingredientGroupSuggestions = Array.from(new Set([
-    ...COMMON_INGREDIENT_GROUPS,
+    ...commonIngredientGroups(locale),
     ...recipes.flatMap((recipe) => recipe.ingredients.map((ingredient) => ingredient.group ?? '')).filter(Boolean),
     ...recipeForm.ingredients.map((ingredient) => ingredient.group.trim()).filter(Boolean),
     ...recipeModalDraft.ingredients.map((ingredient) => ingredient.group.trim()).filter(Boolean),
@@ -796,6 +929,89 @@ function App() {
   const filteredIngredientGroupSuggestions = ingredientGroupSuggestions
     .filter((group) => !activeGroupQuery.trim() || normalizeGroup(group).includes(normalizeGroup(activeGroupQuery)))
     .slice(0, 8)
+  const knownIngredients = Array.from(new Map(
+    recipes.flatMap((recipe) => recipe.ingredients).map((ingredient) => {
+      const { unit } = splitQuantityText(ingredient.quantityText)
+      const group = ingredient.group ?? (ingredient.isPantryStaple ? 'Garde-manger' : '')
+      return [normalizeIngredientName(ingredient.name), { name: ingredient.name, unit, group }]
+    }),
+  ).values()).sort((left, right) => left.name.localeCompare(right.name, locale))
+  const filteredIngredientSuggestions = knownIngredients
+    .filter((ingredient) => !activeIngredientQuery.trim() || normalizeIngredientName(ingredient.name).includes(normalizeIngredientName(activeIngredientQuery)))
+    .slice(0, 8)
+  const knownTags = Array.from(new Set(recipes.flatMap((recipe) => recipe.tags.map((tag) => tag.name.trim())).filter(Boolean)))
+    .sort((left, right) => left.localeCompare(right, locale))
+  const filteredRecipeFormTagSuggestions = knownTags
+    .filter((tag) => !recipeFormTagDraft.trim() || normalizeTag(tag).includes(normalizeTag(recipeFormTagDraft)))
+    .filter((tag) => !recipeForm.tags.some((existingTag) => normalizeTag(existingTag) === normalizeTag(tag)))
+    .slice(0, 8)
+  const filteredRecipeModalTagSuggestions = knownTags
+    .filter((tag) => !recipeModalTagDraft.trim() || normalizeTag(tag).includes(normalizeTag(recipeModalTagDraft)))
+    .filter((tag) => !recipeModalDraft.tags.some((existingTag) => normalizeTag(existingTag) === normalizeTag(tag)))
+    .slice(0, 8)
+  const recipeFormEditableIngredients = ensureEditableIngredientRows(recipeForm.ingredients)
+  const recipeModalEditableIngredients = recipeModalLocked ? recipeModalDraft.ingredients : ensureEditableIngredientRows(recipeModalDraft.ingredients)
+
+  function renderFieldSuggestions(field: Exclude<ActiveEditorField, null>) {
+    if (field.kind === 'ingredient') {
+      return filteredIngredientSuggestions.length > 0 ? (
+        <div className="field-suggestion-list" onMouseDown={cancelEditorBlur}>
+          {filteredIngredientSuggestions.map((ingredient) => (
+            <button
+              key={ingredient.name}
+              className="suggestion-item"
+              onMouseDown={(event) => {
+                event.preventDefault()
+                applyIngredientSuggestion(field.scope, field.index ?? 0, ingredient.name)
+                setActiveEditorField(null)
+              }}
+            >
+              <strong>{ingredient.name}</strong>
+              <span>{[ingredient.unit, ingredient.group].filter(Boolean).join(' · ') || t(locale, 'ingredient')}</span>
+            </button>
+          ))}
+        </div>
+      ) : null
+    }
+
+    if (field.kind === 'group') {
+      return filteredIngredientGroupSuggestions.length > 0 ? (
+        <div className="field-suggestion-list" onMouseDown={cancelEditorBlur}>
+          {filteredIngredientGroupSuggestions.map((group) => (
+            <button
+              key={group}
+              className="suggestion-item"
+              onMouseDown={(event) => {
+                event.preventDefault()
+                applyGroupSuggestion(field.scope, field.index ?? 0, group)
+                setActiveEditorField(null)
+              }}
+            >
+              <strong>{group}</strong>
+            </button>
+          ))}
+        </div>
+      ) : null
+    }
+
+    const suggestions = field.scope === 'form' ? filteredRecipeFormTagSuggestions : filteredRecipeModalTagSuggestions
+    return suggestions.length > 0 ? (
+      <div className="field-suggestion-list" onMouseDown={cancelEditorBlur}>
+        {suggestions.map((tag) => (
+          <button
+            key={tag}
+            className="suggestion-item"
+            onMouseDown={(event) => {
+              event.preventDefault()
+              applyTagSuggestion(field.scope, tag)
+            }}
+          >
+            <strong>{tag}</strong>
+          </button>
+        ))}
+      </div>
+    ) : null
+  }
 
   function renderMealCard(meal: Meal) {
     const title = mealDisplayTitle(meal)
@@ -1043,36 +1259,52 @@ function App() {
                   <input value={recipeForm.name} placeholder={t(locale, 'mealName')} onChange={(event) => setRecipeForm((current) => ({ ...current, name: event.target.value }))} />
                   <input value={recipeForm.url} placeholder={t(locale, 'recipeUrl')} onChange={(event) => setRecipeForm((current) => ({ ...current, url: event.target.value }))} />
                   <textarea value={recipeForm.notes} rows={3} placeholder={t(locale, 'notes')} onChange={(event) => setRecipeForm((current) => ({ ...current, notes: event.target.value }))} />
-                  <div className="tag-editor">
-                    <div className="shopping-entry-row">
-                      <input
-                        value={recipeFormTagDraft}
-                        placeholder={t(locale, 'tags')}
-                        onChange={(event) => setRecipeFormTagDraft(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Enter') return
-                          event.preventDefault()
-                          commitRecipeFormTag()
-                        }}
-                      />
-                      <button className="secondary-button icon-button" onClick={commitRecipeFormTag} aria-label={t(locale, 'add')} title={t(locale, 'add')}>
+                  <div className="tag-editor tag-row-field">
+                    <div className="chip-row">
+                      {recipeForm.tags.map((tag) => (
+                        <button key={tag} className="tag-pill" onClick={() => removeRecipeFormTag(tag)}>
+                          <span>{tag}</span>
+                          <span aria-hidden="true">×</span>
+                        </button>
+                      ))}
+                      {recipeFormTagEditing ? (
+                        <div className="tag-pill tag-pill-editor" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                          <input
+                            autoFocus
+                            value={recipeFormTagDraft}
+                            placeholder={t(locale, 'tags')}
+                            className="tag-pill-input"
+                            onBlur={handleRecipeFormTagBlur}
+                            onFocus={() => {
+                              cancelEditorBlur()
+                              setActiveEditorField({ scope: 'form', kind: 'tag' })
+                            }}
+                            onChange={(event) => setRecipeFormTagDraft(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter') return
+                              event.preventDefault()
+                              commitRecipeFormTag()
+                            }}
+                          />
+                          {activeEditorField?.scope === 'form' && activeEditorField.kind === 'tag' ? renderFieldSuggestions(activeEditorField) : null}
+                        </div>
+                      ) : null}
+                      <button className="secondary-button icon-button" onClick={beginRecipeFormTagEdit} aria-label={t(locale, 'add')} title={t(locale, 'add')}>
                         <span aria-hidden="true">+</span>
                       </button>
                     </div>
-                    {recipeForm.tags.length > 0 ? (
-                      <div className="chip-row">
-                        {recipeForm.tags.map((tag) => (
-                          <button key={tag} className="tag-pill" onClick={() => removeRecipeFormTag(tag)}>
-                            <span>{tag}</span>
-                            <span aria-hidden="true">×</span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
                   </div>
                   <div className="ingredient-editor">
+                    <div className="ingredient-table-shell">
                     <div className="ingredient-table-wrap">
                     <table className="ingredient-table ingredient-table-compact">
+                      <colgroup>
+                        <col className="ingredient-col-name" />
+                        <col className="ingredient-col-quantity" />
+                        <col className="ingredient-col-unit" />
+                        <col className="ingredient-col-group" />
+                        <col className="ingredient-col-remove" />
+                      </colgroup>
                       <thead>
                         <tr>
                           <th>{t(locale, 'ingredient')}</th>
@@ -1083,43 +1315,78 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {recipeForm.ingredients.map((ingredient, index) => (
+                        {recipeFormEditableIngredients.map((ingredient, index) => (
                           <tr key={`recipe-form-ingredient-${index}`}>
                             <td>
-                              <input
-                                value={ingredient.name}
-                                placeholder={t(locale, 'ingredient')}
-                                onChange={(event) => updateRecipeFormIngredient(index, 'name', event.target.value)}
-                              />
+                              <div className="field-with-suggestions" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                                <textarea
+                                  value={ingredient.name}
+                                  placeholder={t(locale, 'ingredient')}
+                                  className="ingredient-table-input ingredient-table-textarea"
+                                  rows={1}
+                                  onInput={autoResizeTextarea}
+                                  onFocus={(event) => {
+                                    cancelEditorBlur()
+                                    setActiveIngredientQuery(event.target.value)
+                                    setActiveEditorField({ scope: 'form', kind: 'ingredient', index })
+                                  }}
+                                  onChange={(event) => {
+                                    setActiveIngredientQuery(event.target.value)
+                                    updateRecipeFormIngredient(index, 'name', event.target.value)
+                                  }}
+                                />
+                                {activeEditorField?.scope === 'form' && activeEditorField.kind === 'ingredient' && activeEditorField.index === index ? renderFieldSuggestions(activeEditorField) : null}
+                              </div>
                             </td>
                             <td>
-                              <input
+                              <textarea
                                 value={ingredient.quantity}
                                 placeholder={t(locale, 'quantity')}
+                                className="ingredient-table-input ingredient-table-textarea"
+                                rows={1}
+                                onInput={autoResizeTextarea}
                                 onChange={(event) => updateRecipeFormIngredient(index, 'quantity', event.target.value)}
                               />
                             </td>
                             <td>
-                              <input
+                              <textarea
                                 value={ingredient.unit}
                                 placeholder={t(locale, 'unit')}
+                                className="ingredient-table-input ingredient-table-textarea"
+                                rows={1}
+                                onInput={autoResizeTextarea}
                                 onChange={(event) => updateRecipeFormIngredient(index, 'unit', event.target.value)}
                               />
                             </td>
                             <td>
-                              <input
-                                value={ingredient.group}
-                                list="ingredient-group-options"
-                                placeholder={t(locale, 'group')}
-                                onFocus={(event) => setActiveGroupQuery(event.target.value)}
-                                onChange={(event) => {
-                                  setActiveGroupQuery(event.target.value)
-                                  updateRecipeFormIngredient(index, 'group', event.target.value)
-                                }}
-                              />
+                              <div className="field-with-suggestions" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                                <textarea
+                                  value={ingredient.group}
+                                  placeholder={t(locale, 'group')}
+                                  className="ingredient-table-input ingredient-table-textarea"
+                                  rows={1}
+                                  onInput={autoResizeTextarea}
+                                  onFocus={(event) => {
+                                    cancelEditorBlur()
+                                    setActiveGroupQuery(event.target.value)
+                                    setActiveEditorField({ scope: 'form', kind: 'group', index })
+                                  }}
+                                  onChange={(event) => {
+                                    setActiveGroupQuery(event.target.value)
+                                    updateRecipeFormIngredient(index, 'group', event.target.value)
+                                  }}
+                                />
+                                {activeEditorField?.scope === 'form' && activeEditorField.kind === 'group' && activeEditorField.index === index ? renderFieldSuggestions(activeEditorField) : null}
+                              </div>
                             </td>
-                            <td>
-                              <button className="ghost-button ingredient-remove-button" onClick={() => removeRecipeFormIngredient(index)} aria-label={t(locale, 'close')} title={t(locale, 'close')}>
+                            <td className="ingredient-remove-cell">
+                              <button
+                                className="ghost-button ingredient-remove-button"
+                                onClick={() => removeRecipeFormIngredient(index)}
+                                aria-label={t(locale, 'close')}
+                                title={t(locale, 'close')}
+                                disabled={recipeFormEditableIngredients.length === 1 && isIngredientDraftEmpty(ingredient)}
+                              >
                                 ×
                               </button>
                             </td>
@@ -1128,7 +1395,7 @@ function App() {
                       </tbody>
                     </table>
                     </div>
-                    <button className="secondary-button" onClick={addRecipeFormIngredient}>{t(locale, 'add')}</button>
+                    </div>
                   </div>
                   <label className="checkbox-row">
                     <input type="checkbox" checked={recipeForm.isFavorite} onChange={(event) => setRecipeForm((current) => ({ ...current, isFavorite: event.target.checked }))} />
@@ -1203,10 +1470,6 @@ function App() {
         </main>
       )}
 
-      <datalist id="ingredient-group-options">
-        {filteredIngredientGroupSuggestions.map((group) => <option key={group} value={group} />)}
-      </datalist>
-
       {editingMeal ? (
         <div className="modal-backdrop">
           <div className="modal-card recipe-editor-modal">
@@ -1226,6 +1489,9 @@ function App() {
                   <input
                     value={recipeModalDraft.name}
                     placeholder={t(locale, 'mealName')}
+                    className={recipeModalLocked ? 'field-readonly' : ''}
+                    readOnly={recipeModalLocked}
+                    tabIndex={recipeModalLocked ? -1 : undefined}
                     onBlur={() => void handleRecipeNameBlur()}
                     onChange={(event) => void handleRecipeNameInput(event.target.value)}
                   />
@@ -1252,54 +1518,83 @@ function App() {
                 ) : null}
               </div>
               <div className="recipe-link-row">
-                {recipeModalDraft.url ? (
-                  <a className="link-button" href={recipeModalDraft.url} target="_blank" rel="noreferrer">{t(locale, 'open')}</a>
-                ) : null}
                 <input
                   value={recipeModalDraft.url}
                   placeholder={t(locale, 'recipeUrl')}
+                  className={recipeModalLocked ? 'field-readonly' : ''}
                   readOnly={recipeModalLocked}
+                  tabIndex={recipeModalLocked ? -1 : undefined}
                   onChange={(event) => setRecipeModalDraft((current) => ({ ...current, url: event.target.value }))}
                 />
+                {recipeModalDraft.url ? (
+                  <a className="link-button icon-button" href={recipeModalDraft.url} target="_blank" rel="noreferrer" aria-label={t(locale, 'open')} title={t(locale, 'open')}>
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                ) : (
+                  <button className="secondary-button icon-button is-disabled" disabled aria-label={t(locale, 'open')} title={t(locale, 'open')}>
+                    <span aria-hidden="true">↗</span>
+                  </button>
+                )}
               </div>
               <textarea
                 value={recipeModalDraft.notes}
                 placeholder={t(locale, 'notes')}
                 rows={4}
+                className={recipeModalLocked ? 'field-readonly' : ''}
                 readOnly={recipeModalLocked}
+                tabIndex={recipeModalLocked ? -1 : undefined}
                 onChange={(event) => setRecipeModalDraft((current) => ({ ...current, notes: event.target.value }))}
               />
-               <div className="tag-editor">
-                 <div className="shopping-entry-row">
-                   <input
-                     value={recipeModalTagDraft}
-                     placeholder={t(locale, 'tags')}
-                     readOnly={recipeModalLocked}
-                     onChange={(event) => setRecipeModalTagDraft(event.target.value)}
-                     onKeyDown={(event) => {
-                       if (event.key !== 'Enter' || recipeModalLocked) return
-                       event.preventDefault()
-                       commitRecipeModalTag()
-                     }}
-                   />
-                   <button className="secondary-button icon-button" onClick={commitRecipeModalTag} disabled={recipeModalLocked} aria-label={t(locale, 'add')} title={t(locale, 'add')}>
-                     <span aria-hidden="true">+</span>
-                   </button>
-                 </div>
-                 {recipeModalDraft.tags.length > 0 ? (
-                   <div className="chip-row">
-                     {recipeModalDraft.tags.map((tag) => (
-                       <button key={tag} className="tag-pill" onClick={() => removeRecipeModalTag(tag)} disabled={recipeModalLocked}>
-                         <span>{tag}</span>
-                         <span aria-hidden="true">×</span>
-                       </button>
-                     ))}
-                   </div>
-                 ) : null}
-               </div>
+                <div className="tag-editor tag-row-field">
+                  <div className="chip-row">
+                    {recipeModalDraft.tags.map((tag) => (
+                      <button key={tag} className="tag-pill" onClick={() => removeRecipeModalTag(tag)} disabled={recipeModalLocked}>
+                        <span>{tag}</span>
+                        <span aria-hidden="true">×</span>
+                      </button>
+                    ))}
+                    {recipeModalTagEditing ? (
+                      <div className="tag-pill tag-pill-editor" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                        <input
+                          autoFocus
+                          value={recipeModalTagDraft}
+                          placeholder={t(locale, 'tags')}
+                          className="tag-pill-input"
+                          readOnly={recipeModalLocked}
+                          tabIndex={recipeModalLocked ? -1 : undefined}
+                          onBlur={handleRecipeModalTagBlur}
+                          onFocus={() => {
+                            cancelEditorBlur()
+                            setActiveEditorField({ scope: 'modal', kind: 'tag' })
+                          }}
+                          onChange={(event) => setRecipeModalTagDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter' || recipeModalLocked) return
+                            event.preventDefault()
+                            commitRecipeModalTag()
+                          }}
+                        />
+                        {activeEditorField?.scope === 'modal' && activeEditorField.kind === 'tag' ? renderFieldSuggestions(activeEditorField) : null}
+                      </div>
+                    ) : null}
+                    {!recipeModalLocked ? (
+                      <button className="secondary-button icon-button" onClick={beginRecipeModalTagEdit} aria-label={t(locale, 'add')} title={t(locale, 'add')}>
+                        <span aria-hidden="true">+</span>
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
                <div className="ingredient-editor">
+                 <div className="ingredient-table-shell">
                  <div className="ingredient-table-wrap">
                  <table className="ingredient-table ingredient-table-compact">
+                   <colgroup>
+                     <col className="ingredient-col-name" />
+                     <col className="ingredient-col-quantity" />
+                     <col className="ingredient-col-unit" />
+                     <col className="ingredient-col-group" />
+                     <col className="ingredient-col-remove" />
+                   </colgroup>
                    <thead>
                      <tr>
                        <th>{t(locale, 'ingredient')}</th>
@@ -1310,56 +1605,97 @@ function App() {
                      </tr>
                    </thead>
                    <tbody>
-                     {recipeModalDraft.ingredients.map((ingredient, index) => (
+                     {recipeModalEditableIngredients.map((ingredient, index) => (
                        <tr key={`recipe-modal-ingredient-${index}`}>
-                         <td>
-                           <input
-                             value={ingredient.name}
-                             placeholder={t(locale, 'ingredient')}
-                             readOnly={recipeModalLocked}
-                             onChange={(event) => updateRecipeModalIngredient(index, 'name', event.target.value)}
-                           />
-                         </td>
-                         <td>
-                           <input
-                             value={ingredient.quantity}
-                             placeholder={t(locale, 'quantity')}
-                             readOnly={recipeModalLocked}
-                             onChange={(event) => updateRecipeModalIngredient(index, 'quantity', event.target.value)}
-                           />
-                         </td>
-                         <td>
-                           <input
-                             value={ingredient.unit}
-                             placeholder={t(locale, 'unit')}
-                             readOnly={recipeModalLocked}
-                             onChange={(event) => updateRecipeModalIngredient(index, 'unit', event.target.value)}
-                           />
-                         </td>
-                         <td>
-                           <input
-                             value={ingredient.group}
-                             list="ingredient-group-options"
-                             placeholder={t(locale, 'group')}
-                             readOnly={recipeModalLocked}
-                             onFocus={(event) => setActiveGroupQuery(event.target.value)}
-                             onChange={(event) => {
-                               setActiveGroupQuery(event.target.value)
-                               updateRecipeModalIngredient(index, 'group', event.target.value)
-                             }}
-                           />
-                         </td>
-                         <td>
-                           <button className="ghost-button ingredient-remove-button" onClick={() => removeRecipeModalIngredient(index)} disabled={recipeModalLocked} aria-label={t(locale, 'close')} title={t(locale, 'close')}>
-                             ×
-                           </button>
-                         </td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
+                          <td>
+                             <div className="field-with-suggestions" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                               <textarea
+                                 value={ingredient.name}
+                                 placeholder={t(locale, 'ingredient')}
+                                 className={recipeModalLocked ? 'field-readonly ingredient-table-input ingredient-table-textarea' : 'ingredient-table-input ingredient-table-textarea'}
+                                 rows={1}
+                                 onInput={autoResizeTextarea}
+                                 readOnly={recipeModalLocked}
+                                 tabIndex={recipeModalLocked ? -1 : undefined}
+                                 onFocus={(event) => {
+                                   cancelEditorBlur()
+                                   setActiveIngredientQuery(event.target.value)
+                                   if (!recipeModalLocked) setActiveEditorField({ scope: 'modal', kind: 'ingredient', index })
+                                 }}
+                                 onChange={(event) => {
+                                   setActiveIngredientQuery(event.target.value)
+                                   updateRecipeModalIngredient(index, 'name', event.target.value)
+                                 }}
+                               />
+                               {!recipeModalLocked && activeEditorField?.scope === 'modal' && activeEditorField.kind === 'ingredient' && activeEditorField.index === index ? renderFieldSuggestions(activeEditorField) : null}
+                             </div>
+                           </td>
+                          <td>
+                            <textarea
+                              value={ingredient.quantity}
+                              placeholder={t(locale, 'quantity')}
+                              className={recipeModalLocked ? 'field-readonly ingredient-table-input ingredient-table-textarea' : 'ingredient-table-input ingredient-table-textarea'}
+                              rows={1}
+                              onInput={autoResizeTextarea}
+                              readOnly={recipeModalLocked}
+                              tabIndex={recipeModalLocked ? -1 : undefined}
+                              onChange={(event) => updateRecipeModalIngredient(index, 'quantity', event.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <textarea
+                              value={ingredient.unit}
+                              placeholder={t(locale, 'unit')}
+                              className={recipeModalLocked ? 'field-readonly ingredient-table-input ingredient-table-textarea' : 'ingredient-table-input ingredient-table-textarea'}
+                              rows={1}
+                              onInput={autoResizeTextarea}
+                              readOnly={recipeModalLocked}
+                              tabIndex={recipeModalLocked ? -1 : undefined}
+                              onChange={(event) => updateRecipeModalIngredient(index, 'unit', event.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <div className="field-with-suggestions" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                              <textarea
+                                value={ingredient.group}
+                                placeholder={t(locale, 'group')}
+                                className={recipeModalLocked ? 'field-readonly ingredient-table-input ingredient-table-textarea' : 'ingredient-table-input ingredient-table-textarea'}
+                                rows={1}
+                                onInput={autoResizeTextarea}
+                                readOnly={recipeModalLocked}
+                                tabIndex={recipeModalLocked ? -1 : undefined}
+                                onFocus={(event) => {
+                                  cancelEditorBlur()
+                                  setActiveGroupQuery(event.target.value)
+                                  if (!recipeModalLocked) setActiveEditorField({ scope: 'modal', kind: 'group', index })
+                                }}
+                                onChange={(event) => {
+                                  setActiveGroupQuery(event.target.value)
+                                  updateRecipeModalIngredient(index, 'group', event.target.value)
+                                }}
+                              />
+                              {!recipeModalLocked && activeEditorField?.scope === 'modal' && activeEditorField.kind === 'group' && activeEditorField.index === index ? renderFieldSuggestions(activeEditorField) : null}
+                            </div>
+                          </td>
+                          <td className="ingredient-remove-cell">
+                            {!recipeModalLocked ? (
+                              <button
+                                className="ghost-button ingredient-remove-button"
+                                onClick={() => removeRecipeModalIngredient(index)}
+                                aria-label={t(locale, 'close')}
+                                title={t(locale, 'close')}
+                                disabled={recipeModalEditableIngredients.length === 1 && isIngredientDraftEmpty(ingredient)}
+                              >
+                                ×
+                              </button>
+                            ) : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  </div>
                  </div>
-                 <button className="secondary-button" onClick={addRecipeModalIngredient} disabled={recipeModalLocked}>{t(locale, 'add')}</button>
                </div>
               <label className={recipeModalLocked ? 'checkbox-row recipe-form-locked' : 'checkbox-row'}>
                 <input
@@ -1372,7 +1708,6 @@ function App() {
               </label>
             </div>
             {recipeModalError ? <p className="form-error">{recipeModalError}</p> : null}
-            <p className="form-debug">{recipeModalDebug}</p>
             <div className="modal-actions">
               <button className="secondary-button" onClick={closeMealEditor}>{t(locale, 'close')}</button>
               <button className={recipeModalSaving ? 'primary-button is-disabled' : 'primary-button'} onClick={() => void handleMealRecipeSave()} disabled={recipeModalSaving}>
