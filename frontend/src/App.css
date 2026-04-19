@@ -882,11 +882,30 @@ textarea {
   font-size: 0.72rem;
 }
 
-/* ── Responsive: compact (≤ 960px) ──────────────────────── */
-/* At this width the planner grid + sidebar can't fit without scrolling.
-   Switch entirely to tab-based layout: mobile tabs, no sidebar, shopping as tab. */
-@media (max-width: 960px) {
-  /* Swap tab bars */
+/* ── Responsive: tablet (640px-1023px) ──────────────────── */
+/* Tablet keeps desktop navigation, but collapses multi-column layouts before
+   they become cramped. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .recipe-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .recipe-name-row {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: 1.25rem;
+  }
+}
+
+/* ── Responsive: phone (0px-639px) ──────────────────────── */
+/* Phone switches to tab-first navigation and hides the sidebar. */
+@media (max-width: 639px) {
   .tab-bar-desktop {
     display: none;
   }
@@ -909,7 +928,6 @@ textarea {
     padding: 0.4rem 0.75rem;
   }
 
-  /* Show mobile content, hide desktop-only */
   .desktop-only {
     display: none !important;
   }
@@ -918,17 +936,14 @@ textarea {
     display: block;
   }
 
-  /* Single-column layout */
   .main-layout {
     grid-template-columns: 1fr;
   }
 
-  /* Hide the sidebar — shopping is in its own tab */
   .sidebar-column {
     display: none !important;
   }
 
-  /* Recipe layout: single column */
   .recipe-layout {
     grid-template-columns: 1fr;
   }
@@ -946,15 +961,6 @@ textarea {
     flex-direction: column;
   }
 
-  .ingredient-table {
-    table-layout: fixed;
-  }
-
-  .ingredient-table-shell {
-    display: block;
-  }
-
-  /* Panel header stays horizontal */
   .panel-header {
     flex-direction: row;
     align-items: center;

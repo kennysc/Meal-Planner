@@ -24,11 +24,11 @@
 ## Phase 1: Responsive Layout Foundation
 Goal: make the app behave predictably at phone, tablet, and desktop sizes.
 
-- [ ] Define 3 responsive tiers in CSS:
+- [x] Define 3 responsive tiers in CSS:
   - phone: `0-639px`
   - tablet: `640-1023px`
   - desktop: `1024px+`
-- [ ] Refactor the current `960px` breakpoint into the new 3-tier system.
+- [x] Refactor the current `960px` breakpoint into the new 3-tier system.
 - [ ] Make the app header wrap gracefully instead of hiding overflow.
 - [ ] Rework header layout so title, week label, and utility controls remain usable at narrow widths.
 - [ ] Improve mobile tab bar behavior and spacing.
