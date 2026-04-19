@@ -79,14 +79,22 @@ textarea,
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .tab-bar-desktop {
   display: flex;
+  align-items: center;
 }
 
 .tab-bar-mobile {
   display: none;
+}
+
+.panel.tab-panel {
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  align-items: center;
 }
 
 /* ── Week pill (non-interactive) ────────────────────────── */
@@ -109,7 +117,11 @@ textarea,
   border-radius: 999px;
   background: var(--surface);
   color: var(--text-secondary);
-  padding: 0.5rem 0.85rem;
+  padding: 0.3rem 0.65rem;
+  min-height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   white-space: nowrap;
   transition: opacity 150ms ease;
@@ -142,6 +154,11 @@ textarea,
   align-items: start;
 }
 
+.content-column,
+.sidebar-column {
+  min-width: 0;
+}
+
 .content-column.hidden {
   display: none !important;
 }
@@ -170,7 +187,7 @@ textarea,
 /* ── Desktop planner grid ───────────────────────────────── */
 .planner-grid {
   display: grid;
-  grid-template-columns: 8rem repeat(2, minmax(11rem, 1fr));
+  grid-template-columns: clamp(6rem, 10vw, 8rem) repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -893,11 +910,17 @@ textarea {
    they become cramped. */
 @media (min-width: 640px) and (max-width: 1023px) {
   .main-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(13rem, 16rem);
+    gap: 1.25rem;
   }
 
   .recipe-layout {
     grid-template-columns: 1fr;
+  }
+
+  .planner-grid {
+    grid-template-columns: 5.5rem repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
   }
 
   .recipe-name-row {
@@ -910,6 +933,16 @@ textarea {
 
   .hero-card {
     row-gap: 0.5rem;
+  }
+
+  .shopping-item {
+    padding-inline: 0.85rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 799px) {
+  .main-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -943,8 +976,10 @@ textarea {
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
+    gap: 0.4rem;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
   }
 
   .tab-bar-mobile::-webkit-scrollbar {
@@ -954,7 +989,14 @@ textarea {
   .tab-bar-mobile .tab-button {
     flex-shrink: 0;
     font-size: 0.82rem;
-    padding: 0.4rem 0.75rem;
+    scroll-snap-align: start;
+  }
+
+  .panel.tab-panel {
+    min-height: 3.3rem;
+    position: sticky;
+    top: 0.75rem;
+    z-index: 30;
   }
 
   .desktop-only {
@@ -967,6 +1009,7 @@ textarea {
 
   .main-layout {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   .sidebar-column {
@@ -997,6 +1040,10 @@ textarea {
 
   .panel {
     padding: 1rem;
+  }
+
+  .shopping-item {
+    padding-inline: 0.85rem;
   }
 
   .meal-card {

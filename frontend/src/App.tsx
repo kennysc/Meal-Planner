@@ -23,6 +23,10 @@ type MobileTab = 'dinner' | 'supper' | 'shopping' | 'recipes' | 'history'
 type ActiveTab = DesktopTab | MobileTab
 type Theme = 'light' | 'dark'
 type AccentName = (typeof CATPPUCCIN_ACCENTS)[number]
+type NavTab<TTab extends ActiveTab> = {
+  key: TTab
+  label: string
+}
 type RecipeDraft = {
   name: string
   url: string
@@ -287,6 +291,7 @@ function App() {
   const recipeModalSelectedRecipeRef = useRef<Recipe | null>(null)
   const recipeSuggestionRequestRef = useRef(0)
   const editorBlurTimeoutRef = useRef<number | null>(null)
+  const mobileTabRefs = useRef<Partial<Record<MobileTab, HTMLButtonElement | null>>>({})
 
   function setRecipeDebug(message: string) {
     console.log('[recipe-modal]', message)
@@ -916,8 +921,28 @@ function App() {
 
   const editingMeal = week?.meals.find((meal) => meal.id === editingMealId) ?? null
   const mobilePlannerTabs: MobileTab[] = ['dinner', 'supper', 'shopping', 'recipes', 'history']
-  const desktopTabs: DesktopTab[] = ['planner', 'recipes', 'history']
+  const desktopTabs: NavTab<DesktopTab>[] = [
+    { key: 'planner', label: t(locale, 'planner') },
+    { key: 'recipes', label: t(locale, 'recipes') },
+    { key: 'history', label: t(locale, 'history') },
+  ]
+  const mobileTabs: NavTab<MobileTab>[] = [
+    { key: 'dinner', label: mealLabel(locale, 'DINNER') },
+    { key: 'supper', label: mealLabel(locale, 'SUPPER') },
+    { key: 'shopping', label: t(locale, 'shoppingList') },
+    { key: 'recipes', label: t(locale, 'recipes') },
+    { key: 'history', label: t(locale, 'history') },
+  ]
   const currentMobileTab = activeTab === 'planner' ? 'dinner' : (mobilePlannerTabs.includes(activeTab as MobileTab) ? activeTab as MobileTab : 'dinner')
+
+  useEffect(() => {
+    mobileTabRefs.current[currentMobileTab]?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'nearest',
+    })
+  }, [currentMobileTab])
+
   const today = new Date()
   const calendarDays = buildCalendarDays(calendarMonth)
   const ingredientGroupSuggestions = Array.from(new Set([
@@ -1151,31 +1176,36 @@ function App() {
         </div>
       </header>
 
-      <nav className="tab-bar tab-bar-desktop">
-        {desktopTabs.map((tab) => (
-          <button key={tab} className={activeTab === tab ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab(tab)}>
-            {t(locale, tab)}
-          </button>
-        ))}
-      </nav>
+      <section className="panel tab-panel">
+        <nav className="tab-bar tab-bar-desktop" aria-label={t(locale, 'planner')}>
+          {desktopTabs.map((tab) => (
+            <button
+              key={tab.key}
+              className={activeTab === tab.key ? 'tab-button active' : 'tab-button'}
+              onClick={() => setActiveTab(tab.key)}
+              aria-current={activeTab === tab.key ? 'page' : undefined}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
 
-      <nav className="tab-bar tab-bar-mobile">
-        <button className={currentMobileTab === 'dinner' ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab('dinner')}>
-          {mealLabel(locale, 'DINNER')}
-        </button>
-        <button className={currentMobileTab === 'supper' ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab('supper')}>
-          {mealLabel(locale, 'SUPPER')}
-        </button>
-        <button className={currentMobileTab === 'shopping' ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab('shopping')}>
-          {t(locale, 'shoppingList')}
-        </button>
-        <button className={currentMobileTab === 'recipes' ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab('recipes')}>
-          {t(locale, 'recipes')}
-        </button>
-        <button className={currentMobileTab === 'history' ? 'tab-button active' : 'tab-button'} onClick={() => setActiveTab('history')}>
-          {t(locale, 'history')}
-        </button>
-      </nav>
+        <nav className="tab-bar tab-bar-mobile" aria-label={t(locale, 'planner')}>
+          {mobileTabs.map((tab) => (
+            <button
+              key={tab.key}
+              ref={(element) => {
+                mobileTabRefs.current[tab.key] = element
+              }}
+              className={currentMobileTab === tab.key ? 'tab-button active' : 'tab-button'}
+              onClick={() => setActiveTab(tab.key)}
+              aria-current={currentMobileTab === tab.key ? 'page' : undefined}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </section>
 
       {loading ? (
         <section className="panel">

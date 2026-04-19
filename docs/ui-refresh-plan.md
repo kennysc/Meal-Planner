@@ -31,15 +31,15 @@ Goal: make the app behave predictably at phone, tablet, and desktop sizes.
 - [x] Refactor the current `960px` breakpoint into the new 3-tier system.
 - [x] Make the app header wrap gracefully instead of hiding overflow.
 - [x] Rework header layout so title, week label, and utility controls remain usable at narrow widths.
-- [ ] Improve mobile tab bar behavior and spacing.
-- [ ] Make mobile tab navigation feel consistent with desktop navigation.
-- [ ] Adjust main layout so tablet does not collapse too aggressively into phone behavior.
-- [ ] Keep shopping, planner, recipes, and history usable across all 3 tiers.
+- [x] Improve mobile tab bar behavior and spacing.
+- [x] Make mobile tab navigation feel consistent with desktop navigation.
+- [x] Adjust main layout so tablet does not collapse too aggressively into phone behavior.
+- [x] Keep shopping, planner, recipes, and history usable across all 3 tiers.
 
 ### Pause / Test / Commit
-- [ ] Pause and ask the user to test Phase 1 across multiple screen sizes.
-- [ ] Address feedback from Phase 1 testing.
-- [ ] Commit Phase 1.
+- [x] Pause and ask the user to test Phase 1 across multiple screen sizes.
+- [x] Address feedback from Phase 1 testing.
+- [x] Commit Phase 1.
 - [ ] Ask whether to continue.
 
 ---
