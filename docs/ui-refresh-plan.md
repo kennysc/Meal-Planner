@@ -47,26 +47,26 @@ Goal: make the app behave predictably at phone, tablet, and desktop sizes.
 ## Phase 2: Shared Surface, Spacing, and Interaction System
 Goal: make cards, panels, controls, and actions visually consistent.
 
-- [ ] Standardize spacing tokens for compact, regular, and spacious areas.
-- [ ] Standardize border radius usage for:
+- [x] Standardize spacing tokens for compact, regular, and spacious areas.
+- [x] Standardize border radius usage for:
   - pills
   - controls
   - cards
   - modals
-- [ ] Standardize button hierarchy:
+- [x] Standardize button hierarchy:
   - primary
   - secondary
   - ghost
   - icon
   - link/icon-link
-- [ ] Standardize focus, hover, active, and disabled states.
-- [ ] Align panel header spacing and typography across the app.
-- [ ] Make section titles, metadata, and support text visually consistent.
+- [x] Standardize focus, hover, active, and disabled states.
+- [x] Align panel header spacing and typography across the app.
+- [x] Make section titles, metadata, and support text visually consistent.
 
 ### Pause / Test / Commit
-- [ ] Pause and ask the user to test Phase 2.
-- [ ] Address feedback from Phase 2 testing.
-- [ ] Commit Phase 2.
+- [x] Pause and ask the user to test Phase 2.
+- [x] Address feedback from Phase 2 testing.
+- [x] Commit Phase 2.
 - [ ] Ask whether to continue.
 
 ---

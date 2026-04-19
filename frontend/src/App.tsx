@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type FocusEvent, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import './App.css'
 import {
   addRecipeIngredients,
@@ -48,6 +49,12 @@ type ActiveEditorField = {
   kind: 'ingredient' | 'group' | 'tag'
   index?: number
 } | null
+
+type SuggestionOverlayPosition = {
+  top: number
+  left: number
+  width: number
+}
 
 const PANTRY_GROUPS = new Set(['pantry', 'garde-manger', 'garde manger'])
 
@@ -138,6 +145,19 @@ function joinQuantityUnit(quantity: string, unit: string) {
   return [quantity.trim(), unit.trim()].filter(Boolean).join(' ')
 }
 
+function editorFieldKey(field: Exclude<ActiveEditorField, null>) {
+  return `${field.scope}:${field.kind}:${field.index ?? 'root'}`
+}
+
+function suggestionOverlayWidth(kind: Exclude<ActiveEditorField, null>['kind'], anchorWidth: number, viewportWidth: number) {
+  const viewportPadding = 16
+  const minimumWidth = 224
+  const maximumWidth = kind === 'ingredient' ? 512 : 352
+  const availableWidth = Math.max(minimumWidth, viewportWidth - viewportPadding * 2)
+
+  return Math.min(Math.max(anchorWidth, minimumWidth), maximumWidth, availableWidth)
+}
+
 function autoResizeTextarea(event: FormEvent<HTMLTextAreaElement>) {
   const element = event.currentTarget
   element.style.height = '0px'
@@ -220,6 +240,14 @@ function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1)
 }
 
+function startOfWeek(date: Date) {
+  const start = new Date(date)
+  const offset = (start.getDay() + 6) % 7
+  start.setDate(start.getDate() - offset)
+  start.setHours(0, 0, 0, 0)
+  return start
+}
+
 function buildCalendarDays(month: Date) {
   const firstDay = startOfMonth(month)
   const offset = (firstDay.getDay() + 6) % 7
@@ -237,6 +265,10 @@ function toDateString(date: Date) {
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
   const day = `${date.getDate()}`.padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function normalizeWeekStart(value: string) {
+  return value.slice(0, 10)
 }
 
 function App() {
@@ -292,6 +324,9 @@ function App() {
   const recipeSuggestionRequestRef = useRef(0)
   const editorBlurTimeoutRef = useRef<number | null>(null)
   const mobileTabRefs = useRef<Partial<Record<MobileTab, HTMLButtonElement | null>>>({})
+  const editorFieldRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const suggestionListRef = useRef<HTMLDivElement | null>(null)
+  const [suggestionOverlayPosition, setSuggestionOverlayPosition] = useState<SuggestionOverlayPosition | null>(null)
 
   function setRecipeDebug(message: string) {
     console.log('[recipe-modal]', message)
@@ -309,6 +344,44 @@ function App() {
       setActiveEditorField(null)
       editorBlurTimeoutRef.current = null
     }, 120)
+  }
+
+  function closeEditorSuggestions() {
+    cancelEditorBlur()
+    setActiveEditorField(null)
+  }
+
+  function updateSuggestionOverlay(field: ActiveEditorField) {
+    if (!field) {
+      setSuggestionOverlayPosition(null)
+      return
+    }
+
+    const anchor = editorFieldRefs.current[editorFieldKey(field)]
+    if (!anchor) {
+      setSuggestionOverlayPosition(null)
+      return
+    }
+
+    const rect = anchor.getBoundingClientRect()
+    const viewportPadding = 16
+    const width = suggestionOverlayWidth(field.kind, rect.width, window.innerWidth)
+    const maxLeft = window.innerWidth - viewportPadding - width
+    setSuggestionOverlayPosition({
+      top: rect.bottom + 4,
+      left: Math.max(viewportPadding, Math.min(rect.left, maxLeft)),
+      width,
+    })
+  }
+
+  function handleEditorFieldBlur(event: FocusEvent<HTMLElement>) {
+    const nextTarget = event.relatedTarget
+    if (nextTarget instanceof Node) {
+      if (event.currentTarget.contains(nextTarget)) return
+      if (suggestionListRef.current?.contains(nextTarget)) return
+    }
+
+    scheduleEditorBlur()
   }
 
   useEffect(() => {
@@ -332,6 +405,23 @@ function App() {
       element.style.height = `${element.scrollHeight}px`
     })
   }, [recipeForm.ingredients, recipeModalDraft.ingredients, recipeModalLocked])
+
+  useEffect(() => {
+    updateSuggestionOverlay(activeEditorField)
+  })
+
+  useEffect(() => {
+    if (!activeEditorField) return
+
+    const refreshOverlay = () => updateSuggestionOverlay(activeEditorField)
+    window.addEventListener('resize', refreshOverlay)
+    window.addEventListener('scroll', refreshOverlay, true)
+
+    return () => {
+      window.removeEventListener('resize', refreshOverlay)
+      window.removeEventListener('scroll', refreshOverlay, true)
+    }
+  }, [activeEditorField])
 
   async function loadDashboard(nextLocale: Locale) {
     setLoading(true)
@@ -895,18 +985,24 @@ function App() {
   }
 
   function openWeekPicker() {
-    const today = new Date()
-    setSelectedCalendarDate(today)
-    setCalendarMonth(startOfMonth(today))
+    const baseDate = week ? new Date(week.startDate) : new Date()
+    setSelectedCalendarDate(baseDate)
+    setCalendarMonth(startOfMonth(baseDate))
     setWeekPickerOpen(true)
   }
 
-  async function handleCreateWeek() {
-    const response = await createWeek(toDateString(selectedCalendarDate), locale)
-    setWeek(response.week)
+  async function handleOpenSelectedWeek() {
+    const selectedWeekStart = toDateString(startOfWeek(selectedCalendarDate))
+    const existingWeek = weeks.find((item) => normalizeWeekStart(item.startDate) === selectedWeekStart)
+    if (existingWeek) {
+      await handleWeekSelect(existingWeek.id)
+    } else {
+      const response = await createWeek(selectedWeekStart, locale)
+      setWeek(response.week)
+      await refreshWeekList()
+    }
     setWeekPickerOpen(false)
     setActiveTab('planner')
-    await refreshWeekList()
   }
 
   const groupedMeals = (week?.meals ?? []).reduce<Record<string, Meal[]>>((accumulator, meal) => {
@@ -924,14 +1020,12 @@ function App() {
   const desktopTabs: NavTab<DesktopTab>[] = [
     { key: 'planner', label: t(locale, 'planner') },
     { key: 'recipes', label: t(locale, 'recipes') },
-    { key: 'history', label: t(locale, 'history') },
   ]
   const mobileTabs: NavTab<MobileTab>[] = [
     { key: 'dinner', label: mealLabel(locale, 'DINNER') },
     { key: 'supper', label: mealLabel(locale, 'SUPPER') },
     { key: 'shopping', label: t(locale, 'shoppingList') },
     { key: 'recipes', label: t(locale, 'recipes') },
-    { key: 'history', label: t(locale, 'history') },
   ]
   const currentMobileTab = activeTab === 'planner' ? 'dinner' : (mobilePlannerTabs.includes(activeTab as MobileTab) ? activeTab as MobileTab : 'dinner')
 
@@ -945,6 +1039,8 @@ function App() {
 
   const today = new Date()
   const calendarDays = buildCalendarDays(calendarMonth)
+  const selectedWeekStart = toDateString(startOfWeek(selectedCalendarDate))
+  const createdWeekStarts = new Set(weeks.map((item) => normalizeWeekStart(item.startDate)))
   const ingredientGroupSuggestions = Array.from(new Set([
     ...commonIngredientGroups(locale),
     ...recipes.flatMap((recipe) => recipe.ingredients.map((ingredient) => ingredient.group ?? '')).filter(Boolean),
@@ -978,9 +1074,25 @@ function App() {
   const recipeModalEditableIngredients = recipeModalLocked ? recipeModalDraft.ingredients : ensureEditableIngredientRows(recipeModalDraft.ingredients)
 
   function renderFieldSuggestions(field: Exclude<ActiveEditorField, null>) {
+    if (typeof document === 'undefined' || !suggestionOverlayPosition) return null
+
+    const overlayStyle = {
+      top: `${suggestionOverlayPosition.top}px`,
+      left: `${suggestionOverlayPosition.left}px`,
+      width: `${suggestionOverlayPosition.width}px`,
+    }
+
     if (field.kind === 'ingredient') {
       return filteredIngredientSuggestions.length > 0 ? (
-        <div className="field-suggestion-list" onMouseDown={cancelEditorBlur}>
+        createPortal(
+        <div
+          ref={suggestionListRef}
+          className="field-suggestion-list field-suggestion-list-ingredient"
+          style={overlayStyle}
+          onMouseDown={cancelEditorBlur}
+          onFocus={cancelEditorBlur}
+          onBlur={handleEditorFieldBlur}
+        >
           {filteredIngredientSuggestions.map((ingredient) => (
             <button
               key={ingredient.name}
@@ -988,20 +1100,28 @@ function App() {
               onMouseDown={(event) => {
                 event.preventDefault()
                 applyIngredientSuggestion(field.scope, field.index ?? 0, ingredient.name)
-                setActiveEditorField(null)
+                closeEditorSuggestions()
               }}
             >
               <strong>{ingredient.name}</strong>
-              <span>{[ingredient.unit, ingredient.group].filter(Boolean).join(' · ') || t(locale, 'ingredient')}</span>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body)
       ) : null
     }
 
     if (field.kind === 'group') {
       return filteredIngredientGroupSuggestions.length > 0 ? (
-        <div className="field-suggestion-list" onMouseDown={cancelEditorBlur}>
+        createPortal(
+        <div
+          ref={suggestionListRef}
+          className="field-suggestion-list"
+          style={overlayStyle}
+          onMouseDown={cancelEditorBlur}
+          onFocus={cancelEditorBlur}
+          onBlur={handleEditorFieldBlur}
+        >
           {filteredIngredientGroupSuggestions.map((group) => (
             <button
               key={group}
@@ -1009,19 +1129,28 @@ function App() {
               onMouseDown={(event) => {
                 event.preventDefault()
                 applyGroupSuggestion(field.scope, field.index ?? 0, group)
-                setActiveEditorField(null)
+                closeEditorSuggestions()
               }}
             >
               <strong>{group}</strong>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body)
       ) : null
     }
 
     const suggestions = field.scope === 'form' ? filteredRecipeFormTagSuggestions : filteredRecipeModalTagSuggestions
     return suggestions.length > 0 ? (
-      <div className="field-suggestion-list" onMouseDown={cancelEditorBlur}>
+      createPortal(
+      <div
+        ref={suggestionListRef}
+        className="field-suggestion-list"
+        style={overlayStyle}
+        onMouseDown={cancelEditorBlur}
+        onFocus={cancelEditorBlur}
+        onBlur={handleEditorFieldBlur}
+      >
         {suggestions.map((tag) => (
           <button
             key={tag}
@@ -1029,12 +1158,14 @@ function App() {
             onMouseDown={(event) => {
               event.preventDefault()
               applyTagSuggestion(field.scope, tag)
+              closeEditorSuggestions()
             }}
           >
             <strong>{tag}</strong>
           </button>
         ))}
-      </div>
+      </div>,
+      document.body)
     ) : null
   }
 
@@ -1074,7 +1205,6 @@ function App() {
     return (
       <div className="panel-header planner-header-row">
         <h2>{title}</h2>
-        <button className="primary-button" onClick={openWeekPicker}>{t(locale, 'newWeek')}</button>
       </div>
     )
   }
@@ -1153,7 +1283,7 @@ function App() {
     <div className="app-shell">
       <header className="hero-card">
         <h1 className="hero-title">{t(locale, 'appTitle')}</h1>
-        {week?.label ? <span className="week-pill">{week.label}</span> : null}
+        {week?.label ? <button className="week-pill week-pill-button" onClick={openWeekPicker}>{week.label}</button> : null}
         <div className="hero-controls">
           <button
             className="header-pill-button"
@@ -1298,7 +1428,14 @@ function App() {
                         </button>
                       ))}
                       {recipeFormTagEditing ? (
-                        <div className="tag-pill tag-pill-editor" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                        <div
+                          ref={(element) => {
+                            editorFieldRefs.current['form:tag:root'] = element
+                          }}
+                          className="tag-pill tag-pill-editor"
+                          onFocus={cancelEditorBlur}
+                          onBlur={handleEditorFieldBlur}
+                        >
                           <input
                             autoFocus
                             value={recipeFormTagDraft}
@@ -1348,7 +1485,14 @@ function App() {
                         {recipeFormEditableIngredients.map((ingredient, index) => (
                           <tr key={`recipe-form-ingredient-${index}`}>
                             <td>
-                              <div className="field-with-suggestions" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                              <div
+                                ref={(element) => {
+                                  editorFieldRefs.current[`form:ingredient:${index}`] = element
+                                }}
+                                className="field-with-suggestions"
+                                onFocus={cancelEditorBlur}
+                                onBlur={handleEditorFieldBlur}
+                              >
                                 <textarea
                                   value={ingredient.name}
                                   placeholder={t(locale, 'ingredient')}
@@ -1389,7 +1533,14 @@ function App() {
                               />
                             </td>
                             <td>
-                              <div className="field-with-suggestions" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                              <div
+                                ref={(element) => {
+                                  editorFieldRefs.current[`form:group:${index}`] = element
+                                }}
+                                className="field-with-suggestions"
+                                onFocus={cancelEditorBlur}
+                                onBlur={handleEditorFieldBlur}
+                              >
                                 <textarea
                                   value={ingredient.group}
                                   placeholder={t(locale, 'group')}
@@ -1584,7 +1735,14 @@ function App() {
                       </button>
                     ))}
                     {recipeModalTagEditing ? (
-                      <div className="tag-pill tag-pill-editor" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                      <div
+                        ref={(element) => {
+                          editorFieldRefs.current['modal:tag:root'] = element
+                        }}
+                        className="tag-pill tag-pill-editor"
+                        onFocus={cancelEditorBlur}
+                        onBlur={handleEditorFieldBlur}
+                      >
                         <input
                           autoFocus
                           value={recipeModalTagDraft}
@@ -1638,7 +1796,14 @@ function App() {
                      {recipeModalEditableIngredients.map((ingredient, index) => (
                        <tr key={`recipe-modal-ingredient-${index}`}>
                           <td>
-                             <div className="field-with-suggestions" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                              <div
+                                ref={(element) => {
+                                  editorFieldRefs.current[`modal:ingredient:${index}`] = element
+                                }}
+                                className="field-with-suggestions"
+                                onFocus={cancelEditorBlur}
+                                onBlur={handleEditorFieldBlur}
+                              >
                                <textarea
                                  value={ingredient.name}
                                  placeholder={t(locale, 'ingredient')}
@@ -1685,7 +1850,14 @@ function App() {
                             />
                           </td>
                           <td>
-                            <div className="field-with-suggestions" onFocus={cancelEditorBlur} onBlur={scheduleEditorBlur}>
+                            <div
+                              ref={(element) => {
+                                editorFieldRefs.current[`modal:group:${index}`] = element
+                              }}
+                              className="field-with-suggestions"
+                              onFocus={cancelEditorBlur}
+                              onBlur={handleEditorFieldBlur}
+                            >
                               <textarea
                                 value={ingredient.group}
                                 placeholder={t(locale, 'group')}
@@ -1783,10 +1955,10 @@ function App() {
 
       {weekPickerOpen ? (
         <div className="modal-backdrop" onClick={() => setWeekPickerOpen(false)}>
-          <div className="modal-card week-picker-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="panel-header">
-              <h3>{t(locale, 'newWeek')}</h3>
-              <button className="secondary-button icon-button" onClick={() => setWeekPickerOpen(false)} aria-label={t(locale, 'close')}>
+            <div className="modal-card week-picker-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="panel-header">
+                <h3>{t(locale, 'openWeek')}</h3>
+                <button className="secondary-button icon-button" onClick={() => setWeekPickerOpen(false)} aria-label={t(locale, 'close')}>
                 <span aria-hidden="true">×</span>
               </button>
             </div>
@@ -1807,28 +1979,31 @@ function App() {
             <div className="calendar-grid">
               {calendarDays.map((day) => {
                 const isToday = sameDate(day, today)
-                const isSelected = sameDate(day, selectedCalendarDate)
+                const isSelected = toDateString(startOfWeek(day)) === selectedWeekStart
                 const isOutsideMonth = day.getMonth() !== calendarMonth.getMonth()
+                const hasWeek = sameDate(day, startOfWeek(day)) && createdWeekStarts.has(toDateString(startOfWeek(day)))
                 return (
                   <button
                     key={day.toISOString()}
                     className={[
                       'calendar-day-button',
                       isToday ? 'today' : '',
+                      hasWeek ? 'has-week' : '',
                       isSelected ? 'selected' : '',
                       isOutsideMonth ? 'outside-month' : '',
                     ].filter(Boolean).join(' ')}
                     onClick={() => setSelectedCalendarDate(day)}
+                    aria-label={isToday ? `${day.getDate()} ${t(locale, 'today')}` : undefined}
+                    title={isToday ? t(locale, 'today') : undefined}
                   >
                     <span>{day.getDate()}</span>
-                    {isToday ? <small>{t(locale, 'today')}</small> : null}
                   </button>
                 )
               })}
             </div>
             <div className="modal-actions">
               <button className="secondary-button" onClick={() => setWeekPickerOpen(false)}>{t(locale, 'close')}</button>
-              <button className="primary-button" onClick={() => void handleCreateWeek()}>{t(locale, 'openWeek')}</button>
+              <button className="primary-button" onClick={() => void handleOpenSelectedWeek()}>{t(locale, 'openWeek')}</button>
             </div>
           </div>
         </div>

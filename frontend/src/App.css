@@ -11,7 +11,7 @@
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 24px;
+  border-radius: var(--radius-modal);
   box-shadow: var(--shadow);
 }
 
@@ -45,14 +45,18 @@
 .header-pill-button {
   background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.3rem 0.65rem;
   font-size: 0.78rem;
   font: inherit;
+  min-height: var(--control-height-compact);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   white-space: nowrap;
   color: var(--text-primary);
-  transition: opacity 150ms ease;
+  transition: opacity 150ms ease, box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
 
 .header-pill-button:hover {
@@ -101,30 +105,49 @@ textarea,
 .week-pill {
   background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.3rem 0.65rem;
   font-size: 0.78rem;
   color: var(--text-secondary);
   white-space: nowrap;
-  min-height: 2rem;
+  min-height: var(--control-height-compact);
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
 }
 
+.week-pill-button {
+  cursor: pointer;
+  transition: opacity 150ms ease, box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.week-pill-button:hover {
+  opacity: 0.85;
+}
+
+.week-pill-button:active {
+  transform: translateY(1px);
+}
+
+.week-pill-button:focus-visible {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: var(--focus-ring);
+}
+
 .tab-button {
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--text-secondary);
   padding: 0.3rem 0.65rem;
-  min-height: 2rem;
+  min-height: var(--control-height-compact);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   white-space: nowrap;
-  transition: opacity 150ms ease;
+  transition: opacity 150ms ease, box-shadow 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
 .tab-button:hover {
@@ -165,19 +188,20 @@ textarea,
 
 /* ── Panel ──────────────────────────────────────────────── */
 .panel {
-  padding: 1.5rem;
+  padding: calc(var(--space-spacious) + var(--space-compact));
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-regular);
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-spacious);
 }
 
 .panel-header h2 {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
+  line-height: 1.25;
 }
 
 .planner-header-row {
@@ -224,12 +248,12 @@ textarea,
   position: relative;
   background: var(--surface-strong);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 1rem;
+  border-radius: var(--radius-card);
+  padding: var(--space-spacious);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--space-regular);
 }
 
 .meal-card-clickable {
@@ -260,11 +284,12 @@ select,
 textarea {
   width: 100%;
   box-sizing: border-box;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--border);
   padding: 0.8rem 0.9rem;
   background: var(--surface-overlay);
   color: var(--text-primary);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
 }
 
 input::placeholder,
@@ -284,7 +309,7 @@ textarea {
 .recipe-card-header,
 .recipe-metadata {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--space-regular);
   flex-wrap: wrap;
   align-items: center;
 }
@@ -318,24 +343,45 @@ textarea {
 .link-button,
 .history-card,
 .suggestion-item {
-  border: none;
-  border-radius: 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
   padding: 0.5rem 0.8rem;
+  min-height: var(--control-height);
   text-decoration: none;
   cursor: pointer;
-  transition: opacity 150ms ease;
+  transition: opacity 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
 .primary-button:hover,
 .secondary-button:hover,
-.link-button:hover,
-.suggestion-item:hover {
+.ghost-button:hover,
+.history-card:hover,
+.link-button:hover {
   opacity: 0.8;
 }
 
+.suggestion-item:hover {
+  opacity: 1;
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.primary-button:active,
+.secondary-button:active,
+.ghost-button:active,
+.link-button:active,
+.tab-button:active,
+.header-pill-button:active,
+.history-card:active,
+.suggestion-item:active,
+.accent-option:active,
+.calendar-day-button:active {
+  transform: translateY(1px);
+}
+
 .icon-button {
-  min-width: 1.875rem;
-  min-height: 1.875rem;
+  min-width: var(--control-height);
+  min-height: var(--control-height);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -361,6 +407,11 @@ textarea {
 .suggestion-item {
   background: var(--surface-muted);
   color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.suggestion-item {
+  background: var(--surface-strong);
 }
 
 .is-disabled {
@@ -379,7 +430,41 @@ textarea {
 }
 
 .ghost-button:hover {
-  opacity: 0.8;
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.ghost-button:disabled,
+.link-button.is-disabled,
+.history-card:disabled,
+.suggestion-item:disabled,
+.header-pill-button:disabled,
+.tab-button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.ghost-button:focus-visible,
+.link-button:focus-visible,
+.header-pill-button:focus-visible,
+.tab-button:focus-visible,
+.history-card:focus-visible,
+.suggestion-item:focus-visible,
+.accent-option:focus-visible,
+.calendar-day-button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: var(--focus-ring);
 }
 
 /* ── Suggestions ────────────────────────────────────────── */
@@ -390,11 +475,11 @@ textarea {
   top: 4.2rem;
   background: var(--surface-strong);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow);
   display: grid;
   gap: 0.4rem;
-  padding: 0.5rem;
+  padding: var(--space-compact);
   z-index: 10;
 }
 
@@ -424,8 +509,8 @@ textarea {
 .recipe-card,
 .history-card {
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 1rem;
+  border-radius: var(--radius-card);
+  padding: var(--space-spacious);
   background: var(--surface-strong);
 }
 
@@ -439,20 +524,20 @@ textarea {
 .shopping-list {
   margin-top: 10px;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   background: var(--surface-strong);
   overflow: hidden;
 }
 
 .chip-row {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-compact);
   flex-wrap: wrap;
 }
 
 .tag-editor {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--space-regular);
 }
 
 .tag-row-field {
@@ -461,26 +546,32 @@ textarea {
 
 .ingredient-editor {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--space-compact);
 }
 
 .field-with-suggestions {
   position: relative;
 }
 
+.field-with-suggestions:focus-within {
+  z-index: 30;
+}
+
 .field-suggestion-list {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 0.25rem);
+  position: fixed;
   display: grid;
   gap: 0.25rem;
-  padding: 0.4rem;
+  max-width: min(22rem, calc(100vw - 3rem));
+  padding: var(--space-compact);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   background: var(--surface-strong);
   box-shadow: var(--shadow);
-  z-index: 20;
+  z-index: 120;
+}
+
+.field-suggestion-list-ingredient {
+  max-width: min(32rem, calc(100vw - 3rem));
 }
 
 .ingredient-table-shell {
@@ -498,9 +589,11 @@ textarea {
 
 .ingredient-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
   max-width: 100%;
+  isolation: isolate;
 }
 
 .ingredient-col-name {
@@ -525,11 +618,18 @@ textarea {
 
 .ingredient-table th,
 .ingredient-table td {
+  position: relative;
+  overflow: visible;
   padding: 0.2rem 0.35rem;
   text-align: left;
   vertical-align: middle;
   background: transparent;
   border-bottom: 1px solid var(--border);
+}
+
+.ingredient-table td:focus-within,
+.ingredient-table th:focus-within {
+  z-index: 40;
 }
 
 .ingredient-table th {
@@ -617,22 +717,27 @@ textarea {
 
 .chip,
 .badge {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.25rem 0.7rem;
   background: var(--surface-muted);
   color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-compact);
 }
 
 .tag-pill {
-  border: none;
-  border-radius: 999px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
   padding: 0.3rem 0.75rem;
   background: var(--surface-muted);
   color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+  min-height: var(--control-height-compact);
   cursor: pointer;
+  transition: opacity 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease, color 150ms ease;
 }
 
 .tag-pill:hover {
@@ -649,12 +754,23 @@ textarea {
   padding-right: 0.9rem;
 }
 
+.tag-pill:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: var(--focus-ring);
+}
+
 .tag-pill-input {
   border: none;
   background: transparent;
   color: inherit;
   min-width: 5rem;
   padding: 0;
+}
+
+.tag-pill-input:focus-visible {
+  outline: none;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .tag-pill-input:focus {
@@ -681,7 +797,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 0;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem var(--space-spacious);
   border-bottom: 1px solid var(--border);
 }
 
@@ -709,6 +825,36 @@ textarea {
   gap: 0.1rem;
   flex: 1;
   margin-left: 20px;
+}
+
+.shopping-copy small,
+.recipe-card-header p,
+.recipe-metadata,
+.settings-copy,
+.form-debug,
+.calendar-weekday,
+.calendar-day-button small {
+  color: var(--text-secondary);
+}
+
+.recipe-card-header h3,
+.recipe-form h3,
+.modal-card h3 {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.recipe-card-header p,
+.settings-copy,
+.form-debug,
+.calendar-weekday,
+.calendar-day-button small,
+.recipe-metadata {
+  font-size: 0.82rem;
+}
+
+.recipe-metadata {
+  align-items: flex-start;
 }
 
 .history-card {
@@ -744,8 +890,8 @@ textarea {
 .modal-card {
   width: min(32rem, 100%);
   background: var(--surface-strong);
-  border-radius: 24px;
-  padding: 1.5rem;
+  border-radius: var(--radius-modal);
+  padding: calc(var(--space-spacious) + var(--space-compact));
   box-shadow: var(--modal-shadow);
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
@@ -762,21 +908,21 @@ textarea {
 
 .meal-editor-form {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--space-regular);
 }
 
 .recipe-editor-meta {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--space-regular);
   align-items: center;
   flex-wrap: wrap;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-spacious);
 }
 
 .recipe-name-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.75rem;
+  gap: var(--space-regular);
   align-items: center;
 }
 
@@ -818,20 +964,21 @@ textarea {
 .accent-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin: 1rem 0;
+  gap: var(--space-regular);
+  margin: var(--space-spacious) 0;
 }
 
 .accent-option {
   border: 1px solid var(--border);
   background: var(--surface-strong);
-  border-radius: 16px;
-  padding: 0.75rem;
+  border-radius: var(--radius-control);
+  padding: var(--space-regular);
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-compact);
   align-items: center;
   text-align: left;
   cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease, transform 150ms ease;
 }
 
 .accent-option.active {
@@ -842,13 +989,17 @@ textarea {
 .settings-color-swatch {
   width: 2rem;
   height: 2rem;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .week-picker-modal {
   width: min(32rem, 100%);
+}
+
+.week-picker-modal .modal-actions {
+  margin-top: var(--space-spacious);
 }
 
 .calendar-header {
@@ -878,23 +1029,47 @@ textarea {
 .calendar-day-button {
   border: 1px solid var(--border);
   background: var(--surface-strong);
-  border-radius: 16px;
-  min-height: 4.5rem;
-  padding: 0.5rem;
+  border-radius: var(--radius-control);
+  aspect-ratio: 1;
+  min-height: 0;
+  padding: var(--space-compact);
+  position: relative;
   display: grid;
   align-content: space-between;
   justify-items: start;
   cursor: pointer;
   color: var(--text-primary);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
 .calendar-day-button.today {
   border-color: var(--accent);
 }
 
+.calendar-day-button.today::after {
+  content: '';
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.calendar-day-button.has-week:not(.selected) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-strong));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
 .calendar-day-button.selected {
   background: var(--accent);
   color: var(--accent-text);
+}
+
+.calendar-day-button.selected.today::after {
+  background: currentColor;
 }
 
 .calendar-day-button.outside-month {

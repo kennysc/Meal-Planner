@@ -45,6 +45,19 @@
   --border:          color-mix(in srgb, var(--ctp-overlay0) 40%, transparent);
   --border-strong:   color-mix(in srgb, var(--accent) 35%, transparent);
 
+  --space-compact:   0.5rem;
+  --space-regular:   0.75rem;
+  --space-spacious:  1rem;
+
+  --radius-pill:     999px;
+  --radius-control:  14px;
+  --radius-card:     20px;
+  --radius-modal:    24px;
+
+  --control-height-compact: 2rem;
+  --control-height: 2.5rem;
+  --focus-ring:      0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+
   --shadow:          0 4px 24px rgba(76, 79, 105, 0.10);
   --modal-shadow:    0 8px 40px rgba(76, 79, 105, 0.20);
 
@@ -105,6 +118,8 @@
 
   --border:          color-mix(in srgb, var(--ctp-overlay0) 45%, transparent);
   --border-strong:   color-mix(in srgb, var(--accent) 40%, transparent);
+
+  --focus-ring:      0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
 
   --shadow:          0 4px 24px rgba(0, 0, 0, 0.40);
   --modal-shadow:    0 8px 40px rgba(0, 0, 0, 0.60);
