@@ -18,24 +18,26 @@
 /* ── Header ─────────────────────────────────────────────── */
 .hero-card {
   display: flex;
+  position: relative;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.4rem 0.75rem;
-  flex-wrap: nowrap;
-  overflow: hidden;
+  padding: 0.65rem 0.85rem;
+  flex-wrap: wrap;
 }
 
 .hero-title {
   font-size: 0.95rem;
   font-weight: 700;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex: 0 1 auto;
 }
 
 .hero-controls {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   flex-shrink: 0;
   margin-left: auto;
 }
@@ -92,10 +94,14 @@ textarea,
   background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0.25rem 0.65rem;
+  padding: 0.3rem 0.65rem;
   font-size: 0.78rem;
   color: var(--text-secondary);
   white-space: nowrap;
+  min-height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 .tab-button {
@@ -901,11 +907,34 @@ textarea {
   .panel {
     padding: 1.25rem;
   }
+
+  .hero-card {
+    row-gap: 0.5rem;
+  }
 }
 
 /* ── Responsive: phone (0px-639px) ──────────────────────── */
 /* Phone switches to tab-first navigation and hides the sidebar. */
 @media (max-width: 639px) {
+  .hero-card {
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 3.3rem;
+  }
+
+  .hero-title {
+    min-width: 0;
+  }
+
+  .hero-controls {
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .header-pill-button {
+    min-width: 2.2rem;
+  }
+
   .tab-bar-desktop {
     display: none;
   }

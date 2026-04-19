@@ -29,8 +29,8 @@ Goal: make the app behave predictably at phone, tablet, and desktop sizes.
   - tablet: `640-1023px`
   - desktop: `1024px+`
 - [x] Refactor the current `960px` breakpoint into the new 3-tier system.
-- [ ] Make the app header wrap gracefully instead of hiding overflow.
-- [ ] Rework header layout so title, week label, and utility controls remain usable at narrow widths.
+- [x] Make the app header wrap gracefully instead of hiding overflow.
+- [x] Rework header layout so title, week label, and utility controls remain usable at narrow widths.
 - [ ] Improve mobile tab bar behavior and spacing.
 - [ ] Make mobile tab navigation feel consistent with desktop navigation.
 - [ ] Adjust main layout so tablet does not collapse too aggressively into phone behavior.
