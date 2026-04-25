@@ -18,6 +18,8 @@
 - [ ] Do not start the next phase automatically if testing feedback is still pending.
 - [ ] Keep changes consistent across desktop, tablet, and mobile.
 - [ ] Prefer improving shared patterns over one-off fixes.
+- [ ] Test keyboard-only behavior for every changed modal, tab, editor, picker, and action area.
+- [ ] Prefer shared structure/classes/components when multiple flows need the same UI behavior.
 
 ---
 
@@ -87,6 +89,18 @@ Goal: make all modals behave and look like one system.
 - [ ] Ensure all modals have safe vertical scrolling.
 - [ ] Ensure no modal introduces horizontal scrolling.
 - [ ] Align close buttons, titles, and internal spacing across all modals.
+- [ ] Add modal accessibility basics consistently:
+  - `role="dialog"`
+  - `aria-modal="true"`
+  - labelled title via `aria-labelledby` or equivalent
+  - meaningful close button labels
+- [ ] Standardize keyboard behavior:
+  - Escape closes dismissible modals
+  - focus moves into the modal when opened
+  - focus returns to the opener when closed when practical
+  - tab navigation stays inside the active modal
+- [ ] Standardize backdrop behavior across modals; decide which flows close on backdrop click and keep it consistent.
+- [ ] Prevent background page scrolling while a modal is open.
 - [ ] Apply the shared modal pattern to:
   - recipe editor modal
   - settings modal
@@ -94,6 +108,7 @@ Goal: make all modals behave and look like one system.
   - meal action modal
   - ingredient confirm modal
   - ingredient picker modal
+- [ ] Keep Phase 3 focused on the shared modal shell and behavior; leave flow-specific content polish for later phases unless needed for consistency.
 
 ### Pause / Test / Commit
 - [ ] Pause and ask the user to test Phase 3.
@@ -141,6 +156,7 @@ Goal: make recipe search, creation, and browsing consistent and scalable.
 - [ ] Ensure the add-recipe form and edit-recipe modal feel like the same editor.
 - [ ] Normalize section ordering and spacing between add/edit experiences.
 - [ ] Review favorite badge, metadata, and open-link placement for consistency.
+- [ ] Verify recipe empty, loading, error, locked/editable, and disabled states are visually clear.
 
 ### Pause / Test / Commit
 - [ ] Pause and ask the user to test Phase 5.
@@ -168,6 +184,7 @@ Goal: make tags, ingredients, and inline suggestions feel intentional and consis
   - recipe-name suggestions if applicable
 - [ ] Constrain popover width/height and prevent clipping at modal edges.
 - [ ] Verify all inline editing patterns work in both editable and locked modes.
+- [ ] Verify keyboard navigation and focus visibility for ingredient cells, tag editing, and suggestion selection.
 
 ### Pause / Test / Commit
 - [ ] Pause and ask the user to test Phase 6.
@@ -182,11 +199,12 @@ Goal: bring the rest of the app up to the same consistency level.
 
 - [ ] Improve shopping list row hierarchy and spacing.
 - [ ] Make shopping interactions clearer on small screens.
-- [ ] Add better visual affordance for drag/reorder if that behavior remains.
+- [ ] Add better visual affordance for drag/reorder if that behavior remains, and verify it works on touch devices.
 - [ ] Improve history card hierarchy and active-state treatment.
-- [ ] Align settings modal with the unified modal pattern.
-- [ ] Improve week picker density, spacing, and responsiveness.
-- [ ] Ensure ingredient confirm/picker modals match the shared modal system.
+- [ ] Polish settings modal content after it uses the unified modal pattern.
+- [ ] Improve week picker density, spacing, responsiveness, and keyboard/touch selection.
+- [ ] Polish ingredient confirm/picker modal content after they use the shared modal system.
+- [ ] Verify shopping/history/settings/week picker empty, disabled, and error-adjacent states are understandable.
 
 ### Pause / Test / Commit
 - [ ] Pause and ask the user to test Phase 7.
@@ -201,9 +219,13 @@ Goal: bring the rest of the app up to the same consistency level.
 - [ ] Test tablet layout thoroughly.
 - [ ] Test desktop layout thoroughly.
 - [ ] Test all modals for scrolling and action accessibility.
+- [ ] Test keyboard-only navigation through tabs, modals, calendar, recipe editor, suggestions, and shopping actions.
+- [ ] Test Escape/backdrop behavior and focus return for every modal.
+- [ ] Test that the page behind modals does not scroll while a modal is open.
 - [ ] Test planner, recipes, shopping, history, settings, and week picker flows.
 - [ ] Verify visual consistency across buttons, inputs, pills, tables, cards, and modals.
 - [ ] Verify French and English UI still fit correctly.
+- [ ] Verify light/dark/accent contrast for text, buttons, focus rings, badges, selected tabs, and selected calendar days.
 - [ ] Do a final polish pass for spacing, typography, and alignment.
 
 ### Final Pause / Test / Commit
