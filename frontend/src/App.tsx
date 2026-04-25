@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type FocusEvent, type FormEvent } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type FocusEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import './App.css'
 import {
@@ -54,6 +54,21 @@ type SuggestionOverlayPosition = {
   top: number
   left: number
   width: number
+}
+
+type ModalSize = 'small' | 'medium' | 'large'
+
+type ModalShellProps = {
+  title: string
+  titleId: string
+  closeLabel: string
+  onClose: () => void
+  children: ReactNode
+  footer: ReactNode
+  meta?: ReactNode
+  size?: ModalSize
+  className?: string
+  closeOnBackdrop?: boolean
 }
 
 const PANTRY_GROUPS = new Set(['pantry', 'garde-manger', 'garde manger'])
@@ -269,6 +284,108 @@ function toDateString(date: Date) {
 
 function normalizeWeekStart(value: string) {
   return value.slice(0, 10)
+}
+
+function getFocusableElements(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true')
+}
+
+function ModalShell({
+  title,
+  titleId,
+  closeLabel,
+  onClose,
+  children,
+  footer,
+  meta,
+  size = 'medium',
+  className,
+  closeOnBackdrop = false,
+}: ModalShellProps) {
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    requestAnimationFrame(() => {
+      const card = cardRef.current
+      if (!card) return
+      if (document.activeElement instanceof HTMLElement && card.contains(document.activeElement)) return
+      const firstFocusable = getFocusableElements(card)[0]
+      if (firstFocusable) firstFocusable.focus()
+      else card.focus()
+    })
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      previousFocusRef.current?.focus()
+    }
+  }, [])
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      onClose()
+      return
+    }
+
+    if (event.key !== 'Tab') return
+
+    const card = cardRef.current
+    if (!card) return
+    const focusable = getFocusableElements(card)
+    if (focusable.length === 0) {
+      event.preventDefault()
+      card.focus()
+      return
+    }
+
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
+  return (
+    <div
+      className="modal-backdrop"
+      onMouseDown={(event) => {
+        if (closeOnBackdrop && event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div
+        ref={cardRef}
+        className={['modal-card', `modal-card-${size}`, className].filter(Boolean).join(' ')}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+      >
+        <div className="modal-header">
+          <h3 id={titleId}>{title}</h3>
+          <button className="secondary-button icon-button" onClick={onClose} aria-label={closeLabel} title={closeLabel}>
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        {meta ? <div className="modal-meta">{meta}</div> : null}
+        <div className="modal-body">{children}</div>
+        <div className="modal-actions modal-footer">{footer}</div>
+      </div>
+    </div>
+  )
 }
 
 function App() {
@@ -1674,19 +1791,29 @@ function App() {
       )}
 
       {editingMeal ? (
-        <div className="modal-backdrop">
-          <div className="modal-card recipe-editor-modal">
-            <div className="panel-header">
-              <h3>{t(locale, 'addRecipe')}</h3>
-              <button className="secondary-button icon-button" onClick={closeMealEditor} aria-label={t(locale, 'close')} title={t(locale, 'close')}>
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
-            <div className="recipe-editor-meta">
+        <ModalShell
+          title={t(locale, 'addRecipe')}
+          titleId="recipe-editor-modal-title"
+          closeLabel={t(locale, 'close')}
+          onClose={closeMealEditor}
+          size="large"
+          className="recipe-editor-modal"
+          meta={(
+            <>
               <strong>{dayLabel(locale, editingMeal.dayOfWeek)} · {mealLabel(locale, editingMeal.mealType)}</strong>
               {recipeModalRecipeId ? <span className="badge">{t(locale, 'existingRecipe')}</span> : null}
-            </div>
-            <div className="meal-editor-form">
+            </>
+          )}
+          footer={(
+            <>
+              <button className="secondary-button" onClick={closeMealEditor}>{t(locale, 'close')}</button>
+              <button className={recipeModalSaving ? 'primary-button is-disabled' : 'primary-button'} onClick={() => void handleMealRecipeSave()} disabled={recipeModalSaving}>
+                {recipeModalSaving ? `${t(locale, 'save')}...` : t(locale, 'save')}
+              </button>
+            </>
+          )}
+        >
+          <div className="meal-editor-form">
               <div className="recipe-name-field">
                 <div className="recipe-name-row">
                   <input
@@ -1930,60 +2057,60 @@ function App() {
                 />
                 <span>{t(locale, 'favorite')}</span>
               </label>
-            </div>
-            {recipeModalError ? <p className="form-error">{recipeModalError}</p> : null}
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={closeMealEditor}>{t(locale, 'close')}</button>
-              <button className={recipeModalSaving ? 'primary-button is-disabled' : 'primary-button'} onClick={() => void handleMealRecipeSave()} disabled={recipeModalSaving}>
-                {recipeModalSaving ? `${t(locale, 'save')}...` : t(locale, 'save')}
-              </button>
-            </div>
           </div>
-        </div>
+          {recipeModalError ? <p className="form-error">{recipeModalError}</p> : null}
+        </ModalShell>
       ) : null}
 
       {settingsOpen ? (
-        <div className="modal-backdrop" onClick={closeSettings}>
-          <div className="modal-card settings-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="panel-header">
-              <h3>{t(locale, 'settings')}</h3>
-              <button className="secondary-button icon-button" onClick={closeSettings} aria-label={t(locale, 'close')}>
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
-            <p className="settings-copy">{t(locale, 'accentColor')}</p>
-            <div className="accent-grid">
-              {CATPPUCCIN_ACCENTS.map((accent) => (
-                <button
-                  key={accent}
-                  className={accentDraft === accent ? 'accent-option active' : 'accent-option'}
-                  onClick={() => {
-                    setAccentDraft(accent)
-                    document.documentElement.style.setProperty('--accent', `var(--ctp-${accent})`)
-                  }}
-                >
-                  <span className="settings-color-swatch" style={{ background: `var(--ctp-${accent})` }} />
-                  <span>{t(locale, accent)}</span>
-                </button>
-              ))}
-            </div>
-            <div className="modal-actions">
+        <ModalShell
+          title={t(locale, 'settings')}
+          titleId="settings-modal-title"
+          closeLabel={t(locale, 'close')}
+          onClose={closeSettings}
+          size="small"
+          className="settings-modal"
+          footer={(
+            <>
               <button className="secondary-button" onClick={resetAccent}>{t(locale, 'resetColors')}</button>
               <button className="primary-button" onClick={applyAccentDraft}>{t(locale, 'save')}</button>
-            </div>
+            </>
+          )}
+        >
+          <p className="settings-copy">{t(locale, 'accentColor')}</p>
+          <div className="accent-grid">
+            {CATPPUCCIN_ACCENTS.map((accent) => (
+              <button
+                key={accent}
+                className={accentDraft === accent ? 'accent-option active' : 'accent-option'}
+                onClick={() => {
+                  setAccentDraft(accent)
+                  document.documentElement.style.setProperty('--accent', `var(--ctp-${accent})`)
+                }}
+              >
+                <span className="settings-color-swatch" style={{ background: `var(--ctp-${accent})` }} />
+                <span>{t(locale, accent)}</span>
+              </button>
+            ))}
           </div>
-        </div>
+        </ModalShell>
       ) : null}
 
       {weekPickerOpen ? (
-        <div className="modal-backdrop" onClick={() => setWeekPickerOpen(false)}>
-            <div className="modal-card week-picker-modal" onClick={(event) => event.stopPropagation()}>
-              <div className="panel-header">
-                <h3>{t(locale, 'openWeek')}</h3>
-                <button className="secondary-button icon-button" onClick={() => setWeekPickerOpen(false)} aria-label={t(locale, 'close')}>
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
+        <ModalShell
+          title={t(locale, 'openWeek')}
+          titleId="week-picker-modal-title"
+          closeLabel={t(locale, 'close')}
+          onClose={() => setWeekPickerOpen(false)}
+          size="medium"
+          className="week-picker-modal"
+          footer={(
+            <>
+              <button className="secondary-button" onClick={() => setWeekPickerOpen(false)}>{t(locale, 'close')}</button>
+              <button className="primary-button" onClick={() => void handleOpenSelectedWeek()}>{t(locale, 'openWeek')}</button>
+            </>
+          )}
+        >
             <div className="calendar-header">
               <button className="secondary-button icon-button" onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} aria-label={t(locale, 'previousMonth')}>
                 <span aria-hidden="true">‹</span>
@@ -2023,20 +2150,19 @@ function App() {
                 )
               })}
             </div>
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setWeekPickerOpen(false)}>{t(locale, 'close')}</button>
-              <button className="primary-button" onClick={() => void handleOpenSelectedWeek()}>{t(locale, 'openWeek')}</button>
-            </div>
-          </div>
-        </div>
+        </ModalShell>
       ) : null}
 
       {mealActionMeal ? (
-        <div className="modal-backdrop">
-          <div className="modal-card meal-action-modal">
-            <p>{t(locale, 'mealActionPrompt')}</p>
-            <p><strong>{mealDisplayTitle(mealActionMeal)}</strong></p>
-            <div className="modal-actions">
+        <ModalShell
+          title={t(locale, 'mealActionPrompt')}
+          titleId="meal-action-modal-title"
+          closeLabel={t(locale, 'close')}
+          onClose={() => setMealActionMeal(null)}
+          size="small"
+          className="meal-action-modal"
+          footer={(
+            <>
               <button className="secondary-button" onClick={() => setMealActionMeal(null)}>{t(locale, 'close')}</button>
               <button className="secondary-button" onClick={handleMealActionEdit}>{t(locale, 'editMeal')}</button>
               {mealActionMeal.recipeUrl ? (
@@ -2044,30 +2170,47 @@ function App() {
                   {t(locale, 'open')}
                 </a>
               ) : null}
-            </div>
-          </div>
-        </div>
+            </>
+          )}
+        >
+          <p><strong>{mealDisplayTitle(mealActionMeal)}</strong></p>
+        </ModalShell>
       ) : null}
 
       {ingredientConfirmDialog ? (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>{t(locale, 'ingredientConfirmPrompt')}</h3>
-            <p>{ingredientConfirmDialog.recipe.name}</p>
-            <div className="modal-actions">
+        <ModalShell
+          title={t(locale, 'ingredientConfirmPrompt')}
+          titleId="ingredient-confirm-modal-title"
+          closeLabel={t(locale, 'close')}
+          onClose={() => setIngredientConfirmDialog(null)}
+          size="small"
+          footer={(
+            <>
               <button className="secondary-button" onClick={() => setIngredientConfirmDialog(null)}>{t(locale, 'skipIngredients')}</button>
               <button className="primary-button" onClick={handleOpenIngredientPicker}>{t(locale, 'chooseIngredients')}</button>
-            </div>
-          </div>
-        </div>
+            </>
+          )}
+        >
+          <p>{ingredientConfirmDialog.recipe.name}</p>
+        </ModalShell>
       ) : null}
 
       {ingredientDialog ? (
-        <div className="modal-backdrop">
-          <div className="modal-card">
-            <h3>{t(locale, 'ingredientPrompt')}</h3>
-            <p>{ingredientDialog.recipe.name}</p>
-            <div className="modal-list">
+        <ModalShell
+          title={t(locale, 'ingredientPrompt')}
+          titleId="ingredient-picker-modal-title"
+          closeLabel={t(locale, 'close')}
+          onClose={() => setIngredientDialog(null)}
+          size="medium"
+          meta={<strong>{ingredientDialog.recipe.name}</strong>}
+          footer={(
+            <>
+              <button className="secondary-button" onClick={() => setIngredientDialog(null)}>{t(locale, 'close')}</button>
+              <button className="primary-button" onClick={() => void handleConfirmIngredients()}>{t(locale, 'confirmIngredients')}</button>
+            </>
+          )}
+        >
+          <div className="modal-list">
               {ingredientDialog.recipe.ingredients.map((ingredient) => (
                 <label key={ingredient.id} className="checkbox-row">
                   <input
@@ -2088,13 +2231,8 @@ function App() {
                   </span>
                 </label>
               ))}
-            </div>
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setIngredientDialog(null)}>{t(locale, 'close')}</button>
-              <button className="primary-button" onClick={() => void handleConfirmIngredients()}>{t(locale, 'confirmIngredients')}</button>
-            </div>
           </div>
-        </div>
+        </ModalShell>
       ) : null}
     </div>
   )

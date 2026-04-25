@@ -76,44 +76,44 @@ Goal: make cards, panels, controls, and actions visually consistent.
 ## Phase 3: Modal System Unification
 Goal: make all modals behave and look like one system.
 
-- [ ] Define a shared modal structure:
+- [x] Define a shared modal structure:
   - header
   - optional subheader/meta
   - scrollable body
   - footer actions
-- [ ] Standardize modal widths by type:
+- [x] Standardize modal widths by type:
   - small confirm
   - medium utility/picker
   - large editor
-- [ ] Standardize modal footer action order.
-- [ ] Ensure all modals have safe vertical scrolling.
-- [ ] Ensure no modal introduces horizontal scrolling.
-- [ ] Align close buttons, titles, and internal spacing across all modals.
-- [ ] Add modal accessibility basics consistently:
+- [x] Standardize modal footer action order.
+- [x] Ensure all modals have safe vertical scrolling.
+- [x] Ensure no modal introduces horizontal scrolling.
+- [x] Align close buttons, titles, and internal spacing across all modals.
+- [x] Add modal accessibility basics consistently:
   - `role="dialog"`
   - `aria-modal="true"`
   - labelled title via `aria-labelledby` or equivalent
   - meaningful close button labels
-- [ ] Standardize keyboard behavior:
+- [x] Standardize keyboard behavior:
   - Escape closes dismissible modals
   - focus moves into the modal when opened
   - focus returns to the opener when closed when practical
   - tab navigation stays inside the active modal
-- [ ] Standardize backdrop behavior across modals; decide which flows close on backdrop click and keep it consistent.
-- [ ] Prevent background page scrolling while a modal is open.
-- [ ] Apply the shared modal pattern to:
+- [x] Standardize backdrop behavior across modals; decide which flows close on backdrop click and keep it consistent.
+- [x] Prevent background page scrolling while a modal is open.
+- [x] Apply the shared modal pattern to:
   - recipe editor modal
   - settings modal
   - week picker modal
   - meal action modal
   - ingredient confirm modal
   - ingredient picker modal
-- [ ] Keep Phase 3 focused on the shared modal shell and behavior; leave flow-specific content polish for later phases unless needed for consistency.
+- [x] Keep Phase 3 focused on the shared modal shell and behavior; leave flow-specific content polish for later phases unless needed for consistency.
 
 ### Pause / Test / Commit
-- [ ] Pause and ask the user to test Phase 3.
-- [ ] Address feedback from Phase 3 testing.
-- [ ] Commit Phase 3.
+- [x] Pause and ask the user to test Phase 3.
+- [x] Address feedback from Phase 3 testing.
+- [x] Commit Phase 3.
 - [ ] Ask whether to continue.
 
 ---
