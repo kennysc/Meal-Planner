@@ -11,6 +11,25 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+function normalizeUniqueList(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+}
+
+const weekWithEntries = { include: weekInclude } satisfies Prisma.WeekDefaultArgs
+
+function serializeWeek(week: Prisma.WeekGetPayload<typeof weekWithEntries>, locale: string) {
+  return {
+    id: week.id,
+    startDate: week.startDate,
+    label: weekLabel(week.startDate, locale),
+    meals: week.mealEntries.map(serializeMealEntry),
+    shoppingList: {
+      id: week.shoppingList?.id,
+      items: week.shoppingList?.items.map(serializeShoppingItem) ?? [],
+    },
+  }
+}
+
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true })
 })
@@ -19,18 +38,7 @@ app.get('/api/weeks/current', async (req, res, next) => {
   try {
     const locale = String(req.query.locale ?? 'fr-CA')
     const week = await ensureWeek()
-    res.json({
-      week: {
-        id: week.id,
-        startDate: week.startDate,
-        label: weekLabel(week.startDate, locale),
-        meals: week.mealEntries.map(serializeMealEntry),
-        shoppingList: {
-          id: week.shoppingList?.id,
-          items: week.shoppingList?.items.map(serializeShoppingItem) ?? [],
-        },
-      },
-    })
+    res.json({ week: serializeWeek(week, locale) })
   } catch (error) {
     next(error)
   }
@@ -69,18 +77,7 @@ app.get('/api/weeks/:weekId', async (req, res, next) => {
       include: weekInclude,
     })
 
-    res.json({
-      week: {
-        id: week.id,
-        startDate: week.startDate,
-        label: weekLabel(week.startDate, locale),
-        meals: week.mealEntries.map(serializeMealEntry),
-        shoppingList: {
-          id: week.shoppingList?.id,
-          items: week.shoppingList?.items.map(serializeShoppingItem) ?? [],
-        },
-      },
-    })
+    res.json({ week: serializeWeek(week, locale) })
   } catch (error) {
     next(error)
   }
@@ -95,18 +92,7 @@ app.post('/api/weeks', async (req, res, next) => {
     const body = bodySchema.parse(req.body)
     const week = await ensureWeek(new Date(body.date))
 
-    res.status(201).json({
-      week: {
-        id: week.id,
-        startDate: week.startDate,
-        label: weekLabel(week.startDate, locale),
-        meals: week.mealEntries.map(serializeMealEntry),
-        shoppingList: {
-          id: week.shoppingList?.id,
-          items: week.shoppingList?.items.map(serializeShoppingItem) ?? [],
-        },
-      },
-    })
+    res.status(201).json({ week: serializeWeek(week, locale) })
   } catch (error) {
     next(error)
   }
@@ -213,29 +199,33 @@ app.post('/api/weeks/:weekId/meals/:mealId/add-recipe-ingredients', async (req, 
 
     const ingredientsToAdd = meal.recipe.recipeIngredients.filter((ingredient) => body.ingredientIds.includes(ingredient.ingredientId))
 
-    for (const ingredient of ingredientsToAdd) {
-      const existing = await prisma.shoppingListItem.findFirst({
-        where: {
-          shoppingListId: meal.week.shoppingList.id,
-          ingredientId: ingredient.ingredientId,
-          checked: false,
-        },
-      })
+    const existingItems = await prisma.shoppingListItem.findMany({
+      where: {
+        shoppingListId: meal.week.shoppingList.id,
+        ingredientId: { in: ingredientsToAdd.map((ingredient) => ingredient.ingredientId) },
+        checked: false,
+      },
+    })
+    const existingByIngredientId = new Map(existingItems.map((item) => [item.ingredientId, item]))
+    const writes: Prisma.PrismaPromise<unknown>[] = []
 
+    for (const ingredient of ingredientsToAdd) {
+      const existing = existingByIngredientId.get(ingredient.ingredientId)
       if (existing) {
         const quantityText = [existing.quantityText, ingredient.quantityText].filter(Boolean).join(' + ')
-        await prisma.shoppingListItem.update({
+        writes.push(prisma.shoppingListItem.update({
           where: { id: existing.id },
           data: {
             quantityText: quantityText || null,
             sourceRecipeId: meal.recipe.id,
             sourceMealEntryId: meal.id,
           },
-        })
+        }))
+        existingByIngredientId.set(ingredient.ingredientId, { ...existing, quantityText: quantityText || null })
         continue
       }
 
-      await prisma.shoppingListItem.create({
+      writes.push(prisma.shoppingListItem.create({
         data: {
           shoppingListId: meal.week.shoppingList.id,
           ingredientId: ingredient.ingredientId,
@@ -244,8 +234,10 @@ app.post('/api/weeks/:weekId/meals/:mealId/add-recipe-ingredients', async (req, 
           sourceRecipeId: meal.recipe.id,
           sourceMealEntryId: meal.id,
         },
-      })
+      }))
     }
+
+    if (writes.length > 0) await prisma.$transaction(writes)
 
     const shoppingList = await prisma.shoppingList.findUniqueOrThrow({
       where: { id: meal.week.shoppingList.id },
@@ -446,7 +438,8 @@ app.get('/api/recipes', async (req, res, next) => {
       include: {
         recipeTags: { include: { tag: true } },
         recipeIngredients: { include: { ingredient: true }, orderBy: { sortOrder: 'asc' } },
-        mealEntries: true,
+        mealEntries: { select: { updatedAt: true }, orderBy: { updatedAt: 'desc' }, take: 1 },
+        _count: { select: { mealEntries: true } },
       },
       orderBy: [{ isFavorite: 'desc' }, { sortOrder: 'asc' }, { updatedAt: 'desc' }],
     })
@@ -454,8 +447,8 @@ app.get('/api/recipes', async (req, res, next) => {
     res.json({
       recipes: recipes.map((recipe) => ({
         ...serializeRecipe(recipe),
-        lastMadeAt: recipe.mealEntries.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0]?.updatedAt ?? null,
-        usageCount: recipe.mealEntries.length,
+        lastMadeAt: recipe.mealEntries[0]?.updatedAt ?? null,
+        usageCount: recipe._count.mealEntries,
       })),
     })
   } catch (error) {
@@ -484,15 +477,16 @@ app.post('/api/recipes', async (req, res, next) => {
     })
 
     const body = bodySchema.parse(req.body)
+    const tagNames = normalizeUniqueList(body.tags)
     const recipe = await prisma.recipe.create({
       data: {
-        name: body.name,
+        name: body.name.trim(),
         url: body.url || null,
         notes: body.notes ?? '',
         isFavorite: body.isFavorite ?? false,
         recipeTags: {
           create: await Promise.all(
-            body.tags.map(async (tagName) => {
+            tagNames.map(async (tagName) => {
               const tag = await prisma.tag.upsert({ where: { name: tagName }, update: {}, create: { name: tagName } })
               return { tagId: tag.id }
             }),
@@ -502,9 +496,9 @@ app.post('/api/recipes', async (req, res, next) => {
           create: await Promise.all(
             body.ingredients.map(async (ingredient, index) => {
               const ingredientRecord = await prisma.ingredient.upsert({
-                where: { name: ingredient.name },
+                where: { name: ingredient.name.trim() },
                 update: {},
-                create: { name: ingredient.name },
+                create: { name: ingredient.name.trim() },
               })
               return {
                 ingredientId: ingredientRecord.id,
@@ -552,53 +546,57 @@ app.put('/api/recipes/:recipeId', async (req, res, next) => {
 
     const body = bodySchema.parse(req.body)
 
-    await prisma.recipe.update({
-      where: { id: req.params.recipeId },
-      data: {
-        name: body.name,
-        url: body.url || null,
-        notes: body.notes ?? '',
-        isFavorite: body.isFavorite ?? false,
-        isArchived: body.isArchived ?? false,
-        recipeTags: { deleteMany: {} },
-        recipeIngredients: { deleteMany: {} },
-      },
-    })
+    const tagNames = normalizeUniqueList(body.tags)
+    const recipe = await prisma.$transaction(async (tx) => {
+      await tx.recipe.update({
+        where: { id: req.params.recipeId },
+        data: {
+          name: body.name.trim(),
+          url: body.url || null,
+          notes: body.notes ?? '',
+          isFavorite: body.isFavorite ?? false,
+          isArchived: body.isArchived ?? false,
+          recipeTags: { deleteMany: {} },
+          recipeIngredients: { deleteMany: {} },
+        },
+      })
 
-    const recipe = await prisma.recipe.update({
-      where: { id: req.params.recipeId },
-      data: {
-        recipeTags: {
-          create: await Promise.all(
-            body.tags.map(async (tagName) => {
-              const tag = await prisma.tag.upsert({ where: { name: tagName }, update: {}, create: { name: tagName } })
-              return { tagId: tag.id }
-            }),
-          ),
+      return tx.recipe.update({
+        where: { id: req.params.recipeId },
+        data: {
+          recipeTags: {
+            create: await Promise.all(
+              tagNames.map(async (tagName) => {
+                const tag = await tx.tag.upsert({ where: { name: tagName }, update: {}, create: { name: tagName } })
+                return { tagId: tag.id }
+              }),
+            ),
+          },
+          recipeIngredients: {
+            create: await Promise.all(
+              body.ingredients.map(async (ingredient, index) => {
+                const name = ingredient.name.trim()
+                const ingredientRecord = await tx.ingredient.upsert({
+                  where: { name },
+                  update: {},
+                  create: { name },
+                })
+                return {
+                  ingredientId: ingredientRecord.id,
+                  quantityText: ingredient.quantityText ?? '',
+                  group: ingredient.group?.trim() || null,
+                  sortOrder: index,
+                  isPantryStaple: ingredient.isPantryStaple ?? false,
+                }
+              }),
+            ),
+          },
         },
-        recipeIngredients: {
-          create: await Promise.all(
-            body.ingredients.map(async (ingredient, index) => {
-              const ingredientRecord = await prisma.ingredient.upsert({
-                where: { name: ingredient.name },
-                update: {},
-                create: { name: ingredient.name },
-              })
-              return {
-                ingredientId: ingredientRecord.id,
-                quantityText: ingredient.quantityText ?? '',
-                group: ingredient.group?.trim() || null,
-                sortOrder: index,
-                isPantryStaple: ingredient.isPantryStaple ?? false,
-              }
-            }),
-          ),
+        include: {
+          recipeTags: { include: { tag: true } },
+          recipeIngredients: { include: { ingredient: true }, orderBy: { sortOrder: 'asc' } },
         },
-      },
-      include: {
-        recipeTags: { include: { tag: true } },
-        recipeIngredients: { include: { ingredient: true }, orderBy: { sortOrder: 'asc' } },
-      },
+      })
     })
 
     res.json({ recipe: serializeRecipe(recipe) })
@@ -624,6 +622,23 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
   if (error instanceof z.ZodError) {
     res.status(400).json({ message: 'Donnees invalides.', issues: error.issues })
     return
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2025') {
+      res.status(404).json({ message: 'Ressource introuvable.' })
+      return
+    }
+
+    if (error.code === 'P2002') {
+      res.status(409).json({ message: 'Cette valeur existe deja.' })
+      return
+    }
+
+    if (error.code === 'P2003') {
+      res.status(409).json({ message: 'Cette ressource est encore utilisee.' })
+      return
+    }
   }
 
   console.error(error)

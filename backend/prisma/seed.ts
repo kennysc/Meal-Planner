@@ -82,12 +82,12 @@ async function main() {
   const week = await ensureWeek()
 
   await prisma.mealEntry.updateMany({
-    where: { weekId: week.id, dayOfWeek: 'MONDAY', mealType: MealType.DINNER },
+    where: { weekId: week.id, dayOfWeek: 'MONDAY', mealType: MealType.DINNER, title: '' },
     data: { title: chili.name, recipeId: chili.id, recipeUrl: chili.url, status: MealStatus.PLANNED },
   })
 
   await prisma.mealEntry.updateMany({
-    where: { weekId: week.id, dayOfWeek: 'TUESDAY', mealType: MealType.SUPPER },
+    where: { weekId: week.id, dayOfWeek: 'TUESDAY', mealType: MealType.SUPPER, title: '' },
     data: { title: saumon.name, recipeId: saumon.id, recipeUrl: saumon.url, status: MealStatus.PLANNED },
   })
 }

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type FocusEvent, type FormEvent } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type FocusEvent, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import './App.css'
 import {
@@ -322,6 +322,7 @@ function App() {
   const [activeEditorField, setActiveEditorField] = useState<ActiveEditorField>(null)
   const recipeModalSelectedRecipeRef = useRef<Recipe | null>(null)
   const recipeSuggestionRequestRef = useRef(0)
+  const dashboardRequestRef = useRef(0)
   const editorBlurTimeoutRef = useRef<number | null>(null)
   const mobileTabRefs = useRef<Partial<Record<MobileTab, HTMLButtonElement | null>>>({})
   const editorFieldRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -329,7 +330,7 @@ function App() {
   const [suggestionOverlayPosition, setSuggestionOverlayPosition] = useState<SuggestionOverlayPosition | null>(null)
 
   function setRecipeDebug(message: string) {
-    console.log('[recipe-modal]', message)
+    if (import.meta.env.DEV) console.log('[recipe-modal]', message)
   }
 
   function cancelEditorBlur() {
@@ -367,10 +368,16 @@ function App() {
     const viewportPadding = 16
     const width = suggestionOverlayWidth(field.kind, rect.width, window.innerWidth)
     const maxLeft = window.innerWidth - viewportPadding - width
-    setSuggestionOverlayPosition({
+    const nextPosition = {
       top: rect.bottom + 4,
       left: Math.max(viewportPadding, Math.min(rect.left, maxLeft)),
       width,
+    }
+    setSuggestionOverlayPosition((current) => {
+      if (current?.top === nextPosition.top && current.left === nextPosition.left && current.width === nextPosition.width) {
+        return current
+      }
+      return nextPosition
     })
   }
 
@@ -406,7 +413,7 @@ function App() {
     })
   }, [recipeForm.ingredients, recipeModalDraft.ingredients, recipeModalLocked])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     updateSuggestionOverlay(activeEditorField)
   })
 
@@ -424,6 +431,8 @@ function App() {
   }, [activeEditorField])
 
   async function loadDashboard(nextLocale: Locale) {
+    const requestId = dashboardRequestRef.current + 1
+    dashboardRequestRef.current = requestId
     setLoading(true)
     setLoadError(null)
     try {
@@ -433,14 +442,16 @@ function App() {
         fetchRecipes({ ingredientMode: 'any' }),
       ])
 
+      if (dashboardRequestRef.current !== requestId) return
       setWeek(weekResponse.week)
       setWeeks(weeksResponse.weeks)
       setRecipes(recipesResponse.recipes)
       setRecipeModalSuggestions([])
     } catch (error) {
+      if (dashboardRequestRef.current !== requestId) return
       setLoadError(error instanceof Error ? error.message : 'Failed to load app')
     } finally {
-      setLoading(false)
+      if (dashboardRequestRef.current === requestId) setLoading(false)
     }
   }
 
@@ -549,9 +560,15 @@ function App() {
 
     const requestId = recipeSuggestionRequestRef.current + 1
     recipeSuggestionRequestRef.current = requestId
-    const response = await fetchSuggestions(trimmedValue)
+    let suggestions: Suggestion[] = []
+    try {
+      const response = await fetchSuggestions(trimmedValue)
+      suggestions = response.suggestions
+    } catch {
+      suggestions = []
+    }
     if (recipeSuggestionRequestRef.current !== requestId) return
-    setRecipeModalSuggestions(response.suggestions)
+    setRecipeModalSuggestions(suggestions)
 
     const exactMatch = findRecipeByName(trimmedValue)
     if (exactMatch) {
@@ -1005,27 +1022,29 @@ function App() {
     setActiveTab('planner')
   }
 
-  const groupedMeals = (week?.meals ?? []).reduce<Record<string, Meal[]>>((accumulator, meal) => {
+  const groupedMeals = useMemo(() => (week?.meals ?? []).reduce<Record<string, Meal[]>>((accumulator, meal) => {
     accumulator[meal.dayOfWeek] = [...(accumulator[meal.dayOfWeek] ?? []), meal]
     return accumulator
-  }, {})
+  }, {}), [week?.meals])
 
-  const mealByDayAndType = (week?.meals ?? []).reduce<Record<string, Meal>>((accumulator, meal) => {
+  const mealByDayAndType = useMemo(() => (week?.meals ?? []).reduce<Record<string, Meal>>((accumulator, meal) => {
     accumulator[`${meal.dayOfWeek}:${meal.mealType}`] = meal
     return accumulator
-  }, {})
+  }, {}), [week?.meals])
 
   const editingMeal = week?.meals.find((meal) => meal.id === editingMealId) ?? null
   const mobilePlannerTabs: MobileTab[] = ['dinner', 'supper', 'shopping', 'recipes', 'history']
   const desktopTabs: NavTab<DesktopTab>[] = [
     { key: 'planner', label: t(locale, 'planner') },
     { key: 'recipes', label: t(locale, 'recipes') },
+    { key: 'history', label: t(locale, 'history') },
   ]
   const mobileTabs: NavTab<MobileTab>[] = [
     { key: 'dinner', label: mealLabel(locale, 'DINNER') },
     { key: 'supper', label: mealLabel(locale, 'SUPPER') },
     { key: 'shopping', label: t(locale, 'shoppingList') },
     { key: 'recipes', label: t(locale, 'recipes') },
+    { key: 'history', label: t(locale, 'history') },
   ]
   const currentMobileTab = activeTab === 'planner' ? 'dinner' : (mobilePlannerTabs.includes(activeTab as MobileTab) ? activeTab as MobileTab : 'dinner')
 
@@ -1038,40 +1057,43 @@ function App() {
   }, [currentMobileTab])
 
   const today = new Date()
-  const calendarDays = buildCalendarDays(calendarMonth)
+  const calendarDays = useMemo(() => buildCalendarDays(calendarMonth), [calendarMonth])
   const selectedWeekStart = toDateString(startOfWeek(selectedCalendarDate))
-  const createdWeekStarts = new Set(weeks.map((item) => normalizeWeekStart(item.startDate)))
-  const ingredientGroupSuggestions = Array.from(new Set([
+  const createdWeekStarts = useMemo(() => new Set(weeks.map((item) => normalizeWeekStart(item.startDate))), [weeks])
+  const ingredientGroupSuggestions = useMemo(() => Array.from(new Set([
     ...commonIngredientGroups(locale),
     ...recipes.flatMap((recipe) => recipe.ingredients.map((ingredient) => ingredient.group ?? '')).filter(Boolean),
     ...recipeForm.ingredients.map((ingredient) => ingredient.group.trim()).filter(Boolean),
     ...recipeModalDraft.ingredients.map((ingredient) => ingredient.group.trim()).filter(Boolean),
-  ])).sort((left, right) => left.localeCompare(right, locale))
-  const filteredIngredientGroupSuggestions = ingredientGroupSuggestions
+  ])).sort((left, right) => left.localeCompare(right, locale)), [locale, recipeForm.ingredients, recipeModalDraft.ingredients, recipes])
+  const filteredIngredientGroupSuggestions = useMemo(() => ingredientGroupSuggestions
     .filter((group) => !activeGroupQuery.trim() || normalizeGroup(group).includes(normalizeGroup(activeGroupQuery)))
-    .slice(0, 8)
-  const knownIngredients = Array.from(new Map(
+    .slice(0, 8), [activeGroupQuery, ingredientGroupSuggestions])
+  const knownIngredients = useMemo(() => Array.from(new Map(
     recipes.flatMap((recipe) => recipe.ingredients).map((ingredient) => {
       const { unit } = splitQuantityText(ingredient.quantityText)
       const group = ingredient.group ?? (ingredient.isPantryStaple ? 'Garde-manger' : '')
       return [normalizeIngredientName(ingredient.name), { name: ingredient.name, unit, group }]
     }),
-  ).values()).sort((left, right) => left.name.localeCompare(right.name, locale))
-  const filteredIngredientSuggestions = knownIngredients
+  ).values()).sort((left, right) => left.name.localeCompare(right.name, locale)), [locale, recipes])
+  const filteredIngredientSuggestions = useMemo(() => knownIngredients
     .filter((ingredient) => !activeIngredientQuery.trim() || normalizeIngredientName(ingredient.name).includes(normalizeIngredientName(activeIngredientQuery)))
-    .slice(0, 8)
-  const knownTags = Array.from(new Set(recipes.flatMap((recipe) => recipe.tags.map((tag) => tag.name.trim())).filter(Boolean)))
-    .sort((left, right) => left.localeCompare(right, locale))
-  const filteredRecipeFormTagSuggestions = knownTags
+    .slice(0, 8), [activeIngredientQuery, knownIngredients])
+  const knownTags = useMemo(() => Array.from(new Set(recipes.flatMap((recipe) => recipe.tags.map((tag) => tag.name.trim())).filter(Boolean)))
+    .sort((left, right) => left.localeCompare(right, locale)), [locale, recipes])
+  const filteredRecipeFormTagSuggestions = useMemo(() => knownTags
     .filter((tag) => !recipeFormTagDraft.trim() || normalizeTag(tag).includes(normalizeTag(recipeFormTagDraft)))
     .filter((tag) => !recipeForm.tags.some((existingTag) => normalizeTag(existingTag) === normalizeTag(tag)))
-    .slice(0, 8)
-  const filteredRecipeModalTagSuggestions = knownTags
+    .slice(0, 8), [knownTags, recipeForm.tags, recipeFormTagDraft])
+  const filteredRecipeModalTagSuggestions = useMemo(() => knownTags
     .filter((tag) => !recipeModalTagDraft.trim() || normalizeTag(tag).includes(normalizeTag(recipeModalTagDraft)))
     .filter((tag) => !recipeModalDraft.tags.some((existingTag) => normalizeTag(existingTag) === normalizeTag(tag)))
-    .slice(0, 8)
-  const recipeFormEditableIngredients = ensureEditableIngredientRows(recipeForm.ingredients)
-  const recipeModalEditableIngredients = recipeModalLocked ? recipeModalDraft.ingredients : ensureEditableIngredientRows(recipeModalDraft.ingredients)
+    .slice(0, 8), [knownTags, recipeModalDraft.tags, recipeModalTagDraft])
+  const recipeFormEditableIngredients = useMemo(() => ensureEditableIngredientRows(recipeForm.ingredients), [recipeForm.ingredients])
+  const recipeModalEditableIngredients = useMemo(
+    () => recipeModalLocked ? recipeModalDraft.ingredients : ensureEditableIngredientRows(recipeModalDraft.ingredients),
+    [recipeModalDraft.ingredients, recipeModalLocked],
+  )
 
   function renderFieldSuggestions(field: Exclude<ActiveEditorField, null>) {
     if (typeof document === 'undefined' || !suggestionOverlayPosition) return null

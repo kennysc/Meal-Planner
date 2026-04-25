@@ -1,7 +1,7 @@
 {
   "name": "mealplanner",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Application de planification de repas avec recettes, historique et liste d epicerie.",
   "scripts": {
     "version:show": "node -p \"require('./package.json').version\""

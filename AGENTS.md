@@ -1,102 +1,48 @@
 # AGENTS.md
 
-## Repo overview
+## Shape
 
-Meal planning web app (French-Canadian primary, English secondary). Monorepo with two independent packages:
+- Full-stack meal planner; French-Canadian is primary, English secondary.
+- Two independent Node packages, no workspace linking: `frontend/` and `backend/`. Install/run commands from the package directory, not repo root.
+- Root `package.json` only has `version:show`.
 
-- `frontend/` — React 19 + Vite, TypeScript, single-page app
-- `backend/` — Node.js + Express 5, TypeScript (ESM), Prisma ORM, PostgreSQL
+## Run
 
-No shared package or workspace linking between them. Each has its own `node_modules` and `package.json`.
+- Full stack: `docker compose up --build` from repo root. Frontend `:3000`, API `:4000`, Postgres `:5432`.
+- Backend container startup runs `npm run prisma:generate && npm run db:push && npm run seed && npm run dev`.
+- Backend local dev needs DB and env: from `backend/`, `DATABASE_URL=postgresql://mealplanner:mealplanner@localhost:5432/mealplanner?schema=public npm run dev`.
+- Frontend local dev: from `frontend/`, `npm run dev`. Vite proxies `/api` to `http://backend:4000`, which only resolves inside Docker; use `VITE_API_URL` or change the proxy target for local backend at `localhost:4000`.
 
-## Running the stack
+## Commands
 
-**Preferred (Docker Compose) — only way to run everything together:**
-```sh
-docker compose up --build
-```
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:4000
-- DB: postgres:16-alpine on port 5432
+- Backend: `npm run dev`, `npm run typecheck`, `npm run build`, `npm run start`, `npm run prisma:generate`, `npm run db:push`, `npm run seed`.
+- Frontend: `npm run dev`, `npm run typecheck`, `npm run build` (`tsc -b && vite build`), `npm run lint`, `npm run preview`.
+- No test runner is configured in either package. Do not invent test commands.
+- Only the frontend has ESLint. Run `npm run lint` from `frontend/` only.
+- To typecheck frontend without building assets: `npm run typecheck` from `frontend/`.
 
-On first boot the backend container automatically runs `prisma generate && db:push && seed && dev`. The seed is idempotent (uses `findUnique` before creating).
+## Backend Notes
 
-**Local dev (backend only):**
-```sh
-cd backend
-DATABASE_URL=postgresql://mealplanner:mealplanner@localhost:5432/mealplanner?schema=public npm run dev
-```
-Uses `tsx watch` — no build step needed for dev.
+- Backend is Express 5 + TypeScript ESM + Prisma + PostgreSQL. Entrypoint is `backend/src/index.ts`; API routes and error handling are all in `backend/src/app.ts`.
+- `backend/tsconfig.json` uses `module`/`moduleResolution: NodeNext`; local TS imports must include `.js` extensions.
+- Prisma uses `@prisma/adapter-pg` with a `pg` Pool in `backend/src/prisma.ts`, not Prisma's default connector URL behavior.
+- Prisma datasource has no `url` in `schema.prisma`; `DATABASE_URL` is read by `dotenv`/process env and passed through the adapter.
+- Schema workflow is `prisma db push`, not migrations. Do not create migration files. After editing `backend/prisma/schema.prisma`, run `npm run prisma:generate` then `npm run db:push` from `backend/`.
+- `ensureWeek()` in `backend/src/week.ts` creates/repairs the week, all 14 meal slots, and the shopping list. Week starts Monday in UTC.
+- Recipe update intentionally deletes and recreates `recipeTags` and `recipeIngredients` in two Prisma updates. Do not replace with a diff casually.
+- `RecipeIngredient.ingredient` has `onDelete: Restrict`; deleting an ingredient used by a recipe will fail unless recipe links are removed first.
+- Adding recipe ingredients to a shopping list deduplicates only existing unchecked items with the same ingredient; quantities are concatenated with ` + `.
 
-**Local dev (frontend only):**
-```sh
-cd frontend
-npm run dev
-```
-Vite proxies `/api` to `http://backend:4000` — this hostname only resolves inside Docker. For local frontend dev pointing at a local backend, override `VITE_API_URL` or edit `vite.config.ts` proxy target to `http://localhost:4000`.
+## Frontend Notes
 
-## Backend commands (run from `backend/`)
+- Frontend is React 19 + Vite + TypeScript. Main app logic is concentrated in `frontend/src/App.tsx`; API helpers are in `frontend/src/api.ts`.
+- API base is `import.meta.env.VITE_API_URL ?? ''`; empty base means relative `/api` paths through Vite/Docker routing.
+- Translations are inline in `frontend/src/i18n.ts`; add UI strings to both `fr-CA` and `en-CA`. Missing keys render as the key.
+- Types used by the UI are hand-written in `frontend/src/types.ts`; keep them in sync with backend serializers when changing API shape.
 
-| Command | What it does |
-|---|---|
-| `npm run dev` | Start with `tsx watch` (no compile) |
-| `npm run build` | Compile TypeScript to `dist/` |
-| `npm run start` | Run compiled `dist/index.js` |
-| `npm run prisma:generate` | Generate Prisma client |
-| `npm run db:push` | Push schema to DB without migrations |
-| `npm run seed` | Seed with sample recipes + week entries |
+## Repo Conventions
 
-**No migration files** — the project uses `prisma db push` (schema push), not `prisma migrate`. Do not create migration files.
-
-After any schema change in `prisma/schema.prisma`, run `prisma:generate` then `db:push`.
-
-## Frontend commands (run from `frontend/`)
-
-| Command | What it does |
-|---|---|
-| `npm run dev` | Vite dev server |
-| `npm run build` | `tsc -b && vite build` |
-| `npm run lint` | ESLint |
-| `npm run preview` | Preview production build |
-
-No typecheck script — typecheck is bundled into `build` (`tsc -b`). To typecheck without building: `npx tsc -b --noEmit` from `frontend/`.
-
-## Architecture notes
-
-- **All API logic lives in one file**: `backend/src/app.ts` (603 lines). No router files, no controller split.
-- **Prisma client uses `@prisma/adapter-pg`** (driver adapter via `pg` Pool), not the default TCP connector. The client is instantiated in `backend/src/prisma.ts`.
-- **`ensureWeek()`** (`backend/src/week.ts`) is called on most week endpoints — it upserts the current week and all 14 meal slots (7 days × DINNER + SUPPER) if they don't exist. Week starts on Monday (UTC).
-- **Recipe update** (`PUT /api/recipes/:id`) does a two-step update: first deletes all `recipeTags` and `recipeIngredients`, then recreates them. This is intentional — don't "optimize" it to a diff without understanding cascade constraints.
-- **`Ingredient` deletion is restricted** (`onDelete: Restrict` on `RecipeIngredient`). Deleting an ingredient that is used by any recipe will throw. Recipes must be updated/deleted first.
-- **Shopping list dedup**: existing unchecked item for the same ingredient → quantities are concatenated with ` + `, not replaced.
-
-## i18n
-
-Translations live entirely in `frontend/src/i18n.ts` as two inline dictionaries (`fr-CA`, `en-CA`). No external i18n library. Add keys to both dictionaries when adding UI strings. The `t(locale, key)` fallback returns the key itself if missing.
-
-## TypeScript / ESM quirks
-
-- Backend `tsconfig.json` uses `"module": "NodeNext"` — all local imports must use `.js` extensions (e.g., `import { foo } from './foo.js'`), even though the source files are `.ts`. This is already the convention throughout `src/`.
-- Both packages use `"type": "module"` in `package.json`.
-- Frontend uses `tsconfig.app.json` + `tsconfig.node.json` (composite project) — `tsc -b` is required, not plain `tsc`.
-
-## Environment variables
-
-Backend reads from `.env` (via `dotenv`) or process env:
-
-| Var | Default | Notes |
-|---|---|---|
-| `DATABASE_URL` | `""` | Required. Full Postgres connection string. |
-| `PORT` | `4000` | HTTP port. |
-
-Frontend reads `VITE_API_URL` at build time (optional — defaults to `""`, meaning relative URLs, relying on Vite proxy).
-
-`.env` and `.env.*` are gitignored.
-
-## No test suite
-
-There are no tests. There is no test runner configured in either package. Do not invent test commands.
-
-## Lint
-
-Only the frontend has ESLint configured (`frontend/eslint.config.js`). The backend has no linter configured. Run `npm run lint` from `frontend/` only.
+- `.env` and `.env.*` are gitignored; do not commit environment files.
+- Build artifacts are ignored: `frontend/dist`, `backend/dist`, `backend/generated`.
+- `frontend/README.md` contains frontend-specific commands and API URL notes.
+- `docs/ui-refresh-plan.md` contains an active phased UI workflow; if working that plan, follow its pause/test/commit gates instead of continuing phases automatically.

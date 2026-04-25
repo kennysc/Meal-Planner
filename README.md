@@ -2,7 +2,7 @@
 
 ## Version actuelle
 
-- `0.1.0`
+- `0.2.0`
 - Le suivi des evolutions se fait dans `CHANGELOG.md`
 
 ## Apercu
@@ -287,17 +287,41 @@ L'architecture de l'application sera preparee pour supporter :
 - Docker
 - Docker Compose
 
-## Deploiement local
+## Developpement local
 
-L'application sera lancee en conteneurs Docker.
+Lancement complet depuis la racine :
 
-Une configuration standard est prevue :
+```sh
+docker compose up --build
+```
 
-- `frontend`
-- `backend`
-- `db`
+- Frontend : `http://localhost:3000`
+- API : `http://localhost:4000`
+- PostgreSQL : `localhost:5432`
 
-Le frontend exposera l'application sur un port accessible depuis le navigateur.
+Les deux paquets Node sont independants. Installer et lancer les commandes depuis `frontend/` ou `backend/`, pas depuis la racine.
+
+Backend local avec une base Postgres deja disponible :
+
+```sh
+cd backend
+DATABASE_URL=postgresql://mealplanner:mealplanner@localhost:5432/mealplanner?schema=public npm run dev
+```
+
+Frontend local :
+
+```sh
+cd frontend
+npm run dev
+```
+
+Pour un frontend local qui appelle un backend local, definir `VITE_API_URL=http://localhost:4000`; le proxy Vite par defaut pointe vers `http://backend:4000`, valide dans Docker.
+
+Validations disponibles :
+
+- Backend : `npm run prisma:generate`, `npm run typecheck`, `npm run build`
+- Frontend : `npm run lint`, `npm run typecheck`, `npm run build`
+- Aucun test runner n'est configure pour le moment.
 
 ## Principes de conception
 

@@ -61,6 +61,8 @@ model MealEntry {
   shoppingItems ShoppingListItem[]
 
   @@unique([weekId, dayOfWeek, mealType])
+  @@index([weekId])
+  @@index([recipeId])
 }
 
 model Recipe {
@@ -77,6 +79,10 @@ model Recipe {
   recipeTags      RecipeTag[]
   recipeIngredients RecipeIngredient[]
   shoppingItems   ShoppingListItem[]
+
+  @@index([isArchived])
+  @@index([sortOrder])
+  @@index([updatedAt])
 }
 
 model Tag {
@@ -93,6 +99,7 @@ model RecipeTag {
   tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([recipeId, tagId])
+  @@index([tagId])
 }
 
 model Ingredient {
@@ -113,6 +120,9 @@ model RecipeIngredient {
   isPantryStaple Boolean   @default(false)
   recipe        Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   ingredient    Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@index([recipeId])
+  @@index([ingredientId])
 }
 
 model ShoppingList {
@@ -140,4 +150,9 @@ model ShoppingListItem {
   ingredient      Ingredient?      @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
   sourceRecipe    Recipe?          @relation(fields: [sourceRecipeId], references: [id], onDelete: SetNull)
   sourceMealEntry MealEntry?       @relation(fields: [sourceMealEntryId], references: [id], onDelete: SetNull)
+
+  @@index([shoppingListId])
+  @@index([ingredientId])
+  @@index([sourceRecipeId])
+  @@index([sourceMealEntryId])
 }

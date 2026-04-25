@@ -1,4 +1,19 @@
-import type { Locale, Meal, Recipe, ShoppingItem, Suggestion, Week, WeekSummary } from './types'
+import type { Locale, Meal, MealStatus, Recipe, ShoppingItem, Suggestion, Week, WeekSummary } from './types'
+
+export type UpdateMealPayload = {
+  title?: string
+  notes?: string
+  status?: MealStatus
+  recipeId?: string | null
+  recipeUrl?: string | null
+}
+
+export type UpdateShoppingItemPayload = {
+  checked?: boolean
+  label?: string
+  quantityText?: string | null
+  section?: string | null
+}
 
 const apiBase = import.meta.env.VITE_API_URL ?? ''
 
@@ -46,7 +61,7 @@ export async function copyPreviousWeek(weekId: string) {
   return request<{ week: { meals: Meal[] } }>(`/api/weeks/${weekId}/copy-previous`, { method: 'POST' })
 }
 
-export async function updateMeal(weekId: string, mealId: string, payload: Partial<Meal>) {
+export async function updateMeal(weekId: string, mealId: string, payload: UpdateMealPayload) {
   return request<{ meal: Meal }>(`/api/weeks/${weekId}/meals/${mealId}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
@@ -114,7 +129,7 @@ export async function addShoppingItem(weekId: string, payload: { label: string; 
   })
 }
 
-export async function updateShoppingItem(itemId: string, payload: Partial<ShoppingItem>) {
+export async function updateShoppingItem(itemId: string, payload: UpdateShoppingItemPayload) {
   return request<{ item: ShoppingItem }>(`/api/shopping-list/items/${itemId}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),

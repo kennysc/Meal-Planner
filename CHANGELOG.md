@@ -8,6 +8,15 @@ Le projet suit une approche de versionnement semantique simple :
 - `MINOR` pour de nouvelles fonctionnalites compatibles
 - `PATCH` pour des corrections et ajustements
 
+## 0.2.0 - 2026-04-25
+
+### Ameliore
+
+- securisation des mises a jour de recettes et de la creation/reparation des semaines
+- validations backend, gestion d'erreurs Prisma et requetes recettes plus legeres
+- optimisations frontend pour les suggestions, les donnees derivees et les types API/i18n
+- workflow de validation avec scripts `typecheck`, CI, exemples d'environnement et Docker reproductible
+
 ## 0.1.0 - 2026-04-13
 
 Premiere base fonctionnelle du projet.

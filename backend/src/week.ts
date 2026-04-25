@@ -1,4 +1,4 @@
-import { DayOfWeek, MealStatus, MealType, Prisma } from '@prisma/client'
+import { MealStatus, Prisma } from '@prisma/client'
 import { orderedDays, orderedMeals } from './constants.js'
 import { prisma } from './prisma.js'
 
@@ -51,14 +51,10 @@ export async function ensureWeek(date = new Date()) {
       .map((mealType) => ({ weekId: week.id, dayOfWeek, mealType, title: '', notes: '', status: MealStatus.PLANNED })),
   )
 
-  if (missingEntries.length > 0) {
-    await prisma.mealEntry.createMany({ data: missingEntries })
-  }
-
-  const hasShoppingList = await prisma.shoppingList.findUnique({ where: { weekId: week.id } })
-  if (!hasShoppingList) {
-    await prisma.shoppingList.create({ data: { weekId: week.id } })
-  }
+  await prisma.$transaction([
+    ...(missingEntries.length > 0 ? [prisma.mealEntry.createMany({ data: missingEntries, skipDuplicates: true })] : []),
+    prisma.shoppingList.upsert({ where: { weekId: week.id }, update: {}, create: { weekId: week.id } }),
+  ])
 
   return prisma.week.findUniqueOrThrow({
     where: { id: week.id },
@@ -68,6 +64,7 @@ export async function ensureWeek(date = new Date()) {
 
 export const weekInclude = {
   mealEntries: {
+    orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
     include: {
       recipe: {
         include: {
@@ -82,8 +79,6 @@ export const weekInclude = {
       items: {
         include: {
           ingredient: true,
-          sourceRecipe: true,
-          sourceMealEntry: true,
         },
         orderBy: [{ checked: 'asc' }, { createdAt: 'asc' }],
       },
@@ -101,12 +96,4 @@ export function weekLabel(startDate: Date, locale: string) {
   })
 
   return `${formatter.format(startDate)} - ${formatter.format(end)}`
-}
-
-export function parseMealType(value: string) {
-  return value === MealType.SUPPER ? MealType.SUPPER : MealType.DINNER
-}
-
-export function parseDayOfWeek(value: string) {
-  return orderedDays.includes(value as DayOfWeek) ? (value as DayOfWeek) : DayOfWeek.MONDAY
 }

@@ -171,7 +171,9 @@ const dictionaries: Record<Locale, Dictionary> = {
   },
 }
 
-export function t(locale: Locale, key: string) {
+export type TranslationKey = keyof typeof dictionaries['fr-CA']
+
+export function t(locale: Locale, key: TranslationKey) {
   return dictionaries[locale][key] ?? key
 }
 

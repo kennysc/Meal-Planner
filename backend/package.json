@@ -1,12 +1,13 @@
 {
   "name": "backend",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "API pour le planificateur de repas",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.scripts.json --noEmit",
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "db:push": "prisma db push",
