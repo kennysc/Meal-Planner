@@ -141,27 +141,27 @@ Goal: make the planner clearer, more stable, and more responsive.
 ## Phase 5: Recipes Screen Layout and Information Hierarchy
 Goal: make recipe search, creation, and browsing consistent and scalable.
 
-- [ ] Redesign recipe toolbar into clearer visual groups.
-- [ ] Improve toolbar behavior on tablet and phone.
-- [ ] Rework recipe layout by breakpoint:
+- [x] Redesign recipe toolbar into clearer visual groups.
+- [x] Improve toolbar behavior on tablet and phone.
+- [x] Rework recipe layout by breakpoint:
   - desktop: split form/list
   - tablet: more balanced or stacked layout
   - phone: stacked flow
-- [ ] Improve recipe card hierarchy:
+- [x] Improve recipe card hierarchy:
   - title
   - supporting text
   - tags
   - ingredients
   - metadata
-- [ ] Ensure the add-recipe form and edit-recipe modal feel like the same editor.
-- [ ] Normalize section ordering and spacing between add/edit experiences.
-- [ ] Review favorite badge, metadata, and open-link placement for consistency.
-- [ ] Verify recipe empty, loading, error, locked/editable, and disabled states are visually clear.
+- [x] Ensure the add-recipe form and edit-recipe modal feel like the same editor.
+- [x] Normalize section ordering and spacing between add/edit experiences.
+- [x] Review favorite badge, metadata, and open-link placement for consistency.
+- [x] Verify recipe empty, loading, error, locked/editable, and disabled states are visually clear.
 
 ### Pause / Test / Commit
-- [ ] Pause and ask the user to test Phase 5.
-- [ ] Address feedback from Phase 5 testing.
-- [ ] Commit Phase 5.
+- [x] Pause and ask the user to test Phase 5.
+- [x] Address feedback from Phase 5 testing.
+- [x] Commit Phase 5.
 - [ ] Ask whether to continue.
 
 ---

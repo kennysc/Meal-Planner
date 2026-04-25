@@ -1623,22 +1623,35 @@ function App() {
               </div>
 
               <div className="recipe-toolbar">
-                <input value={recipeSearch} placeholder={t(locale, 'searchRecipes')} onChange={(event) => setRecipeSearch(event.target.value)} />
-                <input value={tagSearch} placeholder={t(locale, 'searchTags')} onChange={(event) => setTagSearch(event.target.value)} />
-                <input value={ingredientSearch} placeholder={t(locale, 'searchIngredients')} onChange={(event) => setIngredientSearch(event.target.value)} />
-                <select value={ingredientMode} onChange={(event) => setIngredientMode(event.target.value as 'any' | 'all')}>
-                  <option value="any">{t(locale, 'matchAny')}</option>
-                  <option value="all">{t(locale, 'matchAll')}</option>
-                </select>
-                <button className="primary-button" onClick={() => void refreshRecipes()}>{t(locale, 'searchRecipes')}</button>
+                <div className="recipe-toolbar-group recipe-toolbar-search">
+                  <input value={recipeSearch} placeholder={t(locale, 'searchRecipes')} onChange={(event) => setRecipeSearch(event.target.value)} />
+                  <input value={tagSearch} placeholder={t(locale, 'searchTags')} onChange={(event) => setTagSearch(event.target.value)} />
+                </div>
+                <div className="recipe-toolbar-group recipe-toolbar-filter">
+                  <input value={ingredientSearch} placeholder={t(locale, 'searchIngredients')} onChange={(event) => setIngredientSearch(event.target.value)} />
+                  <select value={ingredientMode} onChange={(event) => setIngredientMode(event.target.value as 'any' | 'all')}>
+                    <option value="any">{t(locale, 'matchAny')}</option>
+                    <option value="all">{t(locale, 'matchAll')}</option>
+                  </select>
+                  <button className="primary-button" onClick={() => void refreshRecipes()}>{t(locale, 'searchRecipes')}</button>
+                </div>
               </div>
 
               <div className="recipe-layout">
                 <div className="recipe-form">
-                  <h3>{t(locale, 'addRecipe')}</h3>
-                  <input value={recipeForm.name} placeholder={t(locale, 'mealName')} onChange={(event) => setRecipeForm((current) => ({ ...current, name: event.target.value }))} />
-                  <input value={recipeForm.url} placeholder={t(locale, 'recipeUrl')} onChange={(event) => setRecipeForm((current) => ({ ...current, url: event.target.value }))} />
-                  <textarea value={recipeForm.notes} rows={3} placeholder={t(locale, 'notes')} onChange={(event) => setRecipeForm((current) => ({ ...current, notes: event.target.value }))} />
+                  <div className="recipe-editor-section recipe-editor-section-header">
+                    <h3>{t(locale, 'addRecipe')}</h3>
+                    <label className="checkbox-row">
+                      <input type="checkbox" checked={recipeForm.isFavorite} onChange={(event) => setRecipeForm((current) => ({ ...current, isFavorite: event.target.checked }))} />
+                      <span>{t(locale, 'favorite')}</span>
+                    </label>
+                  </div>
+                  <div className="recipe-editor-section">
+                    <input value={recipeForm.name} placeholder={t(locale, 'mealName')} onChange={(event) => setRecipeForm((current) => ({ ...current, name: event.target.value }))} />
+                    <input value={recipeForm.url} placeholder={t(locale, 'recipeUrl')} onChange={(event) => setRecipeForm((current) => ({ ...current, url: event.target.value }))} />
+                    <textarea value={recipeForm.notes} rows={3} placeholder={t(locale, 'notes')} onChange={(event) => setRecipeForm((current) => ({ ...current, notes: event.target.value }))} />
+                  </div>
+                  <div className="recipe-editor-section">
                   <div className="tag-editor tag-row-field">
                     <div className="chip-row">
                       {recipeForm.tags.map((tag) => (
@@ -1681,6 +1694,8 @@ function App() {
                       </button>
                     </div>
                   </div>
+                  </div>
+                  <div className="recipe-editor-section">
                   <div className="ingredient-editor">
                     <div className="ingredient-table-shell">
                     <div className="ingredient-table-wrap">
@@ -1798,10 +1813,7 @@ function App() {
                     </div>
                     </div>
                   </div>
-                  <label className="checkbox-row">
-                    <input type="checkbox" checked={recipeForm.isFavorite} onChange={(event) => setRecipeForm((current) => ({ ...current, isFavorite: event.target.checked }))} />
-                    <span>{t(locale, 'favorite')}</span>
-                  </label>
+                  </div>
                   <button className="primary-button" onClick={() => void handleCreateRecipe()}>{t(locale, 'addRecipe')}</button>
                 </div>
 
@@ -1812,29 +1824,33 @@ function App() {
                       <div className="recipe-card-header">
                         <div>
                           <h3>{recipe.name}</h3>
-                          <p>{recipe.notes || recipe.url || t(locale, 'quickCreateRecipe')}</p>
+                          <p className="recipe-card-support">{recipe.notes || recipe.url || t(locale, 'quickCreateRecipe')}</p>
                         </div>
                         {recipe.isFavorite ? <span className="badge">{t(locale, 'favorite')}</span> : null}
                       </div>
-                      <div className="chip-row">
-                        {recipe.tags.map((tag) => (
-                          <span key={tag.id} className="chip">{tag.name}</span>
-                        ))}
-                      </div>
-                      <ul className="ingredient-list">
-                        {recipe.ingredients.map((ingredient) => (
-                          <li key={ingredient.id}>
-                            <span>{ingredient.name}</span>
-                            <span>{ingredient.quantityText}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      {recipe.tags.length > 0 ? (
+                        <div className="chip-row recipe-tag-row">
+                          {recipe.tags.map((tag) => (
+                            <span key={tag.id} className="chip">{tag.name}</span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {recipe.ingredients.length > 0 ? (
+                        <ul className="ingredient-list">
+                          {recipe.ingredients.map((ingredient) => (
+                            <li key={ingredient.id}>
+                              <span>{ingredient.name}</span>
+                              {ingredient.quantityText ? <span>{ingredient.quantityText}</span> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                       <div className="recipe-metadata">
                         <span>{t(locale, 'usageCount')}: {recipe.usageCount ?? 0}</span>
                         <span>
                           {t(locale, 'lastMade')}: {recipe.lastMadeAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(recipe.lastMadeAt)) : '-'}
                         </span>
-                        {recipe.url ? <a href={recipe.url} target="_blank" rel="noreferrer">{t(locale, 'openRecipe')}</a> : null}
+                        {recipe.url ? <a className="link-button" href={recipe.url} target="_blank" rel="noreferrer">{t(locale, 'openRecipe')}</a> : null}
                       </div>
                     </article>
                   ))}
