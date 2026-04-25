@@ -4,6 +4,7 @@ import './App.css'
 import {
   addRecipeIngredients,
   addShoppingItem,
+  archiveRecipe,
   createRecipe,
   createWeek,
   deleteShoppingItem,
@@ -1085,6 +1086,47 @@ function App() {
     }
   }
 
+  async function handleMealOnlySave() {
+    if (!week || !editingMealId || recipeModalSaving) return
+    const editingMeal = week.meals.find((meal) => meal.id === editingMealId)
+    if (!editingMeal) return
+
+    const payload = parseRecipeDraft(recipeModalDraft)
+    if (!payload.name) {
+      setRecipeModalError(t(locale, 'mealName'))
+      return
+    }
+
+    setRecipeModalSaving(true)
+    setRecipeModalError(null)
+
+    try {
+      const mealResponse = await updateMeal(week.id, editingMeal.id, {
+        title: payload.name,
+        notes: payload.notes,
+        status: editingMeal.status,
+        recipeId: null,
+        recipeUrl: payload.url || null,
+      })
+
+      setWeek((current) =>
+        current
+          ? {
+              ...current,
+              meals: current.meals.map((meal) => (meal.id === editingMeal.id ? mealResponse.meal : meal)),
+            }
+          : current,
+      )
+
+      closeMealEditor()
+    } catch (error) {
+      console.error('[recipe-modal] meal-only save failed', error)
+      setRecipeModalError(error instanceof Error ? error.message : 'Failed to save meal')
+    } finally {
+      setRecipeModalSaving(false)
+    }
+  }
+
   function handleOpenIngredientPicker() {
     if (!ingredientConfirmDialog) return
     setIngredientDialog(ingredientConfirmDialog)
@@ -1164,6 +1206,12 @@ function App() {
     setRecipeForm(EMPTY_RECIPE_DRAFT)
     upsertRecipe(created.recipe)
     setActiveTab('recipes')
+  }
+
+  async function handleArchiveRecipe(recipe: Recipe) {
+    if (!window.confirm(t(locale, 'deleteRecipeConfirm'))) return
+    await archiveRecipe(recipe.id)
+    setRecipes((current) => current.filter((item) => item.id !== recipe.id))
   }
 
   async function handleWeekSelect(weekId: string) {
@@ -1851,6 +1899,7 @@ function App() {
                           {t(locale, 'lastMade')}: {recipe.lastMadeAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(recipe.lastMadeAt)) : '-'}
                         </span>
                         {recipe.url ? <a className="link-button" href={recipe.url} target="_blank" rel="noreferrer">{t(locale, 'openRecipe')}</a> : null}
+                        <button className="ghost-button recipe-delete-button" onClick={() => void handleArchiveRecipe(recipe)}>{t(locale, 'deleteRecipe')}</button>
                       </div>
                     </article>
                   ))}
@@ -1887,6 +1936,7 @@ function App() {
           footer={(
             <>
               <button className="secondary-button" onClick={closeMealEditor}>{t(locale, 'close')}</button>
+              <button className="secondary-button" onClick={() => void handleMealOnlySave()} disabled={recipeModalSaving}>{t(locale, 'saveMealOnly')}</button>
               <button className={recipeModalSaving ? 'primary-button is-disabled' : 'primary-button'} onClick={() => void handleMealRecipeSave()} disabled={recipeModalSaving}>
                 {recipeModalSaving ? `${t(locale, 'save')}...` : t(locale, 'save')}
               </button>

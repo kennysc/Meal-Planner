@@ -1065,6 +1065,11 @@ textarea:focus-visible {
   border-top: 1px solid var(--border);
 }
 
+.recipe-delete-button {
+  margin-left: auto;
+  color: var(--ctp-red);
+}
+
 .history-card {
   text-align: left;
   cursor: pointer;

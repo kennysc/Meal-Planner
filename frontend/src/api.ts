@@ -115,6 +115,10 @@ export async function updateRecipe(recipeId: string, payload: {
   })
 }
 
+export async function archiveRecipe(recipeId: string) {
+  return request<{ recipe: Recipe }>(`/api/recipes/${recipeId}/archive`, { method: 'POST' })
+}
+
 export async function addRecipeIngredients(weekId: string, mealId: string, ingredientIds: string[]) {
   return request<{ items: ShoppingItem[] }>(`/api/weeks/${weekId}/meals/${mealId}/add-recipe-ingredients`, {
     method: 'POST',
