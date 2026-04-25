@@ -19,8 +19,8 @@ import {
 import { dayLabel, mealLabel, t } from './i18n'
 import type { Locale, Meal, MealType, Recipe, ShoppingItem, Suggestion, Week, WeekSummary } from './types'
 
-type DesktopTab = 'planner' | 'recipes' | 'history'
-type MobileTab = 'dinner' | 'supper' | 'shopping' | 'recipes' | 'history'
+type DesktopTab = 'planner' | 'recipes'
+type MobileTab = 'dinner' | 'supper' | 'shopping' | 'recipes'
 type ActiveTab = DesktopTab | MobileTab
 type Theme = 'light' | 'dark'
 type AccentName = (typeof CATPPUCCIN_ACCENTS)[number]
@@ -282,6 +282,11 @@ function toDateString(date: Date) {
   return `${year}-${month}-${day}`
 }
 
+function fromDateString(value: string) {
+  const [year = '0', month = '1', day = '1'] = value.slice(0, 10).split('-')
+  return new Date(Number(year), Number(month) - 1, Number(day))
+}
+
 function normalizeWeekStart(value: string) {
   return value.slice(0, 10)
 }
@@ -400,6 +405,7 @@ function App() {
   const [accentDraft, setAccentDraft] = useState<AccentName>(DEFAULT_ACCENT.light)
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('planner')
+  const [utilityMenuOpen, setUtilityMenuOpen] = useState(false)
   const [week, setWeek] = useState<Week | null>(null)
   const [weeks, setWeeks] = useState<WeekSummary[]>([])
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -427,6 +433,7 @@ function App() {
   const [tagSearch, setTagSearch] = useState('')
   const [ingredientSearch, setIngredientSearch] = useState('')
   const [ingredientMode, setIngredientMode] = useState<'any' | 'all'>('any')
+  const [showRecipeShoppingList, setShowRecipeShoppingList] = useState(false)
   const [shoppingDraft, setShoppingDraft] = useState('')
   const [recipeForm, setRecipeForm] = useState<RecipeDraft>({
     ...EMPTY_RECIPE_DRAFT,
@@ -442,6 +449,7 @@ function App() {
   const dashboardRequestRef = useRef(0)
   const editorBlurTimeoutRef = useRef<number | null>(null)
   const mobileTabRefs = useRef<Partial<Record<MobileTab, HTMLButtonElement | null>>>({})
+  const utilityMenuRef = useRef<HTMLDivElement | null>(null)
   const editorFieldRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const suggestionListRef = useRef<HTMLDivElement | null>(null)
   const [suggestionOverlayPosition, setSuggestionOverlayPosition] = useState<SuggestionOverlayPosition | null>(null)
@@ -511,6 +519,27 @@ function App() {
   useEffect(() => {
     void loadDashboard(locale)
   }, [locale])
+
+  useEffect(() => {
+    if (!utilityMenuOpen) return
+
+    function handlePointerDown(event: MouseEvent) {
+      if (event.target instanceof Node && utilityMenuRef.current?.contains(event.target)) return
+      setUtilityMenuOpen(false)
+    }
+
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape') setUtilityMenuOpen(false)
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [utilityMenuOpen])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -605,6 +634,7 @@ function App() {
   }
 
   function openSettings() {
+    setUtilityMenuOpen(false)
     setAccentDraft(theme === 'dark' ? darkAccent : lightAccent)
     setSettingsOpen(true)
   }
@@ -773,6 +803,30 @@ function App() {
     const mealId = mealActionMeal.id
     setMealActionMeal(null)
     openMealEditor(mealId)
+  }
+
+  async function handleMealActionClear() {
+    if (!week || !mealActionMeal) return
+    const mealToClear = mealActionMeal
+    setMealActionMeal(null)
+
+    const response = await updateMeal(week.id, mealToClear.id, {
+      title: '',
+      notes: '',
+      status: mealToClear.status,
+      recipeId: null,
+      recipeUrl: null,
+    })
+
+    setWeek((current) =>
+      current
+        ? {
+            ...current,
+            meals: current.meals.map((meal) => (meal.id === mealToClear.id ? response.meal : meal)),
+          }
+        : current,
+    )
+    openMealEditor(response.meal.id)
   }
 
   function closeMealEditor() {
@@ -1119,7 +1173,7 @@ function App() {
   }
 
   function openWeekPicker() {
-    const baseDate = week ? new Date(week.startDate) : new Date()
+    const baseDate = week ? fromDateString(week.startDate) : new Date()
     setSelectedCalendarDate(baseDate)
     setCalendarMonth(startOfMonth(baseDate))
     setWeekPickerOpen(true)
@@ -1139,29 +1193,22 @@ function App() {
     setActiveTab('planner')
   }
 
-  const groupedMeals = useMemo(() => (week?.meals ?? []).reduce<Record<string, Meal[]>>((accumulator, meal) => {
-    accumulator[meal.dayOfWeek] = [...(accumulator[meal.dayOfWeek] ?? []), meal]
-    return accumulator
-  }, {}), [week?.meals])
-
   const mealByDayAndType = useMemo(() => (week?.meals ?? []).reduce<Record<string, Meal>>((accumulator, meal) => {
     accumulator[`${meal.dayOfWeek}:${meal.mealType}`] = meal
     return accumulator
   }, {}), [week?.meals])
 
   const editingMeal = week?.meals.find((meal) => meal.id === editingMealId) ?? null
-  const mobilePlannerTabs: MobileTab[] = ['dinner', 'supper', 'shopping', 'recipes', 'history']
+  const mobilePlannerTabs: MobileTab[] = ['dinner', 'supper', 'shopping', 'recipes']
   const desktopTabs: NavTab<DesktopTab>[] = [
     { key: 'planner', label: t(locale, 'planner') },
     { key: 'recipes', label: t(locale, 'recipes') },
-    { key: 'history', label: t(locale, 'history') },
   ]
   const mobileTabs: NavTab<MobileTab>[] = [
     { key: 'dinner', label: mealLabel(locale, 'DINNER') },
     { key: 'supper', label: mealLabel(locale, 'SUPPER') },
     { key: 'shopping', label: t(locale, 'shoppingList') },
     { key: 'recipes', label: t(locale, 'recipes') },
-    { key: 'history', label: t(locale, 'history') },
   ]
   const currentMobileTab = activeTab === 'planner' ? 'dinner' : (mobilePlannerTabs.includes(activeTab as MobileTab) ? activeTab as MobileTab : 'dinner')
 
@@ -1211,6 +1258,7 @@ function App() {
     () => recipeModalLocked ? recipeModalDraft.ingredients : ensureEditableIngredientRows(recipeModalDraft.ingredients),
     [recipeModalDraft.ingredients, recipeModalLocked],
   )
+  const showSidebarShoppingList = activeTab !== 'recipes' || showRecipeShoppingList
 
   function renderFieldSuggestions(field: Exclude<ActiveEditorField, null>) {
     if (typeof document === 'undefined' || !suggestionOverlayPosition) return null
@@ -1312,16 +1360,21 @@ function App() {
     const title = mealDisplayTitle(meal)
 
     return (
-      <div
+      <button
         key={meal.id}
         className="meal-card meal-card-clickable"
         onClick={() => handleMealTileClick(meal)}
+        type="button"
       >
         <div className="meal-summary">
-          {title ? <strong>{title}</strong> : null}
+          <strong>{title}</strong>
         </div>
-      </div>
+      </button>
     )
+  }
+
+  function renderEmptyMealCard() {
+    return <div className="meal-card meal-card-empty" aria-hidden="true" />
   }
 
   function renderMobileMealColumn(mealType: MealType) {
@@ -1331,8 +1384,11 @@ function App() {
           const meal = mealByDayAndType[`${day}:${mealType}`]
           return (
             <div key={day} className="mobile-planner-row">
-              <div className="planner-day">{dayLabel(locale, day)}</div>
-              {meal ? renderMealCard(meal) : <div className="meal-card meal-card-empty" />}
+              <div className="mobile-planner-day">
+                <span>{dayLabel(locale, day)}</span>
+                <small>{mealLabel(locale, mealType)}</small>
+              </div>
+              {meal ? renderMealCard(meal) : renderEmptyMealCard()}
             </div>
           )
         })}
@@ -1420,44 +1476,63 @@ function App() {
 
   return (
     <div className="app-shell">
-      <header className="hero-card">
-        <h1 className="hero-title">{t(locale, 'appTitle')}</h1>
-        {week?.label ? <button className="week-pill week-pill-button" onClick={openWeekPicker}>{week.label}</button> : null}
-        <div className="hero-controls">
-          <button
-            className="header-pill-button"
-            onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))}
-            aria-label={theme === 'light' ? t(locale, 'darkMode') : t(locale, 'lightMode')}
-            title={theme === 'light' ? t(locale, 'darkMode') : t(locale, 'lightMode')}
-          >
-            {theme === 'light' ? '◐' : '○'}
-          </button>
-          <button
-            className="header-pill-button"
-            onClick={() => setLocale((current) => (current === 'fr-CA' ? 'en-CA' : 'fr-CA'))}
-            aria-label={t(locale, 'language')}
-          >
-            {locale === 'fr-CA' ? 'FR' : 'EN'}
-          </button>
-          <button className="header-pill-button" onClick={openSettings} aria-label={t(locale, 'settings')} title={t(locale, 'settings')}>
-            ⚙
-          </button>
-        </div>
-      </header>
+      <header className="app-topbar">
+        <div className="topbar-main">
+          <h1 className="hero-title">{t(locale, 'appTitle')}</h1>
 
-      <section className="panel tab-panel">
-        <nav className="tab-bar tab-bar-desktop" aria-label={t(locale, 'planner')}>
-          {desktopTabs.map((tab) => (
+          <nav className="tab-bar tab-bar-desktop topbar-nav" aria-label={t(locale, 'planner')}>
+            {desktopTabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={activeTab === tab.key ? 'tab-button active' : 'tab-button'}
+                onClick={() => setActiveTab(tab.key)}
+                aria-current={activeTab === tab.key ? 'page' : undefined}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+
+          {week?.label ? <button className="week-pill week-pill-button" onClick={openWeekPicker}>{week.label}</button> : null}
+
+          <div className="utility-menu-wrap" ref={utilityMenuRef}>
             <button
-              key={tab.key}
-              className={activeTab === tab.key ? 'tab-button active' : 'tab-button'}
-              onClick={() => setActiveTab(tab.key)}
-              aria-current={activeTab === tab.key ? 'page' : undefined}
+              className="header-pill-button hamburger-button"
+              onClick={() => setUtilityMenuOpen((current) => !current)}
+              aria-label={t(locale, 'actions')}
+              aria-haspopup="menu"
+              aria-expanded={utilityMenuOpen}
+              title={t(locale, 'actions')}
             >
-              {tab.label}
+              <span aria-hidden="true">☰</span>
             </button>
-          ))}
-        </nav>
+            {utilityMenuOpen ? (
+              <div className="utility-menu" role="menu">
+                <button
+                  className="utility-menu-item"
+                  onClick={() => {
+                    setTheme((current) => (current === 'light' ? 'dark' : 'light'))
+                  }}
+                  role="menuitem"
+                >
+                  {theme === 'light' ? t(locale, 'darkMode') : t(locale, 'lightMode')}
+                </button>
+                <button
+                  className="utility-menu-item"
+                  onClick={() => {
+                    setLocale((current) => (current === 'fr-CA' ? 'en-CA' : 'fr-CA'))
+                  }}
+                  role="menuitem"
+                >
+                  {t(locale, 'language')}: {locale === 'fr-CA' ? 'FR' : 'EN'}
+                </button>
+                <button className="utility-menu-item" onClick={openSettings} role="menuitem">
+                  {t(locale, 'settings')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
 
         <nav className="tab-bar tab-bar-mobile" aria-label={t(locale, 'planner')}>
           {mobileTabs.map((tab) => (
@@ -1474,7 +1549,7 @@ function App() {
             </button>
           ))}
         </nav>
-      </section>
+      </header>
 
       {loading ? (
         <section className="panel">
@@ -1489,7 +1564,7 @@ function App() {
           <p>{t(locale, 'loadFailed')}</p>
         </section>
       ) : (
-        <main className="main-layout">
+        <main className={showSidebarShoppingList ? 'main-layout' : 'main-layout main-layout-wide'}>
           <section className={activeTab === 'planner' ? 'content-column desktop-only' : 'content-column desktop-only hidden'}>
             <article className="panel planner-panel">
               {renderPlannerHeader(t(locale, 'planner'))}
@@ -1505,7 +1580,10 @@ function App() {
                 {DAYS.map((day) => (
                   <Fragment key={day}>
                     <div className="planner-day">{dayLabel(locale, day)}</div>
-                    {(groupedMeals[day] ?? []).sort((left, right) => left.mealType.localeCompare(right.mealType)).map((meal) => renderMealCard(meal))}
+                    {(['DINNER', 'SUPPER'] as const).map((mealType) => {
+                      const meal = mealByDayAndType[`${day}:${mealType}`]
+                      return meal ? renderMealCard(meal) : renderEmptyMealCard()
+                    })}
                   </Fragment>
                 ))}
               </div>
@@ -1539,6 +1617,9 @@ function App() {
             <article className="panel">
               <div className="panel-header">
                 <h2>{t(locale, 'recipes')}</h2>
+                <button className="secondary-button recipe-shopping-toggle" onClick={() => setShowRecipeShoppingList((current) => !current)}>
+                  {showRecipeShoppingList ? t(locale, 'hideShoppingList') : t(locale, 'showShoppingList')}
+                </button>
               </div>
 
               <div className="recipe-toolbar">
@@ -1762,24 +1843,7 @@ function App() {
             </article>
           </section>
 
-          <section className={activeTab === 'history' || currentMobileTab === 'history' ? 'content-column' : 'content-column hidden'}>
-            <article className="panel">
-              <div className="panel-header">
-                <h2>{t(locale, 'history')}</h2>
-              </div>
-              <div className="history-list">
-                {weeks.length <= 1 ? <p>{t(locale, 'emptyHistory')}</p> : null}
-                {weeks.map((item) => (
-                  <button key={item.id} className={item.id === week.id ? 'history-card active' : 'history-card'} onClick={() => void handleWeekSelect(item.id)}>
-                    <strong>{item.label}</strong>
-                    <span>{item.highlights.join(' • ') || t(locale, 'planner')}</span>
-                  </button>
-                ))}
-              </div>
-            </article>
-          </section>
-
-          <aside className="sidebar-column">
+          <aside className={showSidebarShoppingList ? 'sidebar-column' : 'sidebar-column hidden'}>
             <article className="panel shopping-panel">
               <div className="panel-header">
                 <h2>{t(locale, 'shoppingList')}</h2>
@@ -1826,7 +1890,9 @@ function App() {
                     onChange={(event) => void handleRecipeNameInput(event.target.value)}
                   />
                   {recipeModalRecipeId && recipeModalLocked ? (
-                    <button className="secondary-button" onClick={() => setRecipeModalLocked(false)}>{t(locale, 'editRecipe')}</button>
+                    <button className="primary-button icon-button" onClick={() => setRecipeModalLocked(false)} aria-label={t(locale, 'editRecipe')} title={t(locale, 'editRecipe')}>
+                      <span aria-hidden="true">✎</span>
+                    </button>
                   ) : null}
                 </div>
                 {recipeModalSuggestions.length > 0 ? (
@@ -1857,11 +1923,11 @@ function App() {
                   onChange={(event) => setRecipeModalDraft((current) => ({ ...current, url: event.target.value }))}
                 />
                 {recipeModalDraft.url ? (
-                  <a className="link-button icon-button" href={recipeModalDraft.url} target="_blank" rel="noreferrer" aria-label={t(locale, 'open')} title={t(locale, 'open')}>
+                  <a className="primary-button icon-button" href={recipeModalDraft.url} target="_blank" rel="noreferrer" aria-label={t(locale, 'open')} title={t(locale, 'open')}>
                     <span aria-hidden="true">↗</span>
                   </a>
                 ) : (
-                  <button className="secondary-button icon-button is-disabled" disabled aria-label={t(locale, 'open')} title={t(locale, 'open')}>
+                  <button className="primary-button icon-button is-disabled" disabled aria-label={t(locale, 'open')} title={t(locale, 'open')}>
                     <span aria-hidden="true">↗</span>
                   </button>
                 )}
@@ -2165,6 +2231,7 @@ function App() {
             <>
               <button className="secondary-button" onClick={() => setMealActionMeal(null)}>{t(locale, 'close')}</button>
               <button className="secondary-button" onClick={handleMealActionEdit}>{t(locale, 'editMeal')}</button>
+              <button className="secondary-button" onClick={() => void handleMealActionClear()}>{t(locale, 'clearMeal')}</button>
               {mealActionMeal.recipeUrl ? (
                 <a className="primary-button" href={mealActionMeal.recipeUrl} target="_blank" rel="noreferrer" onClick={() => setMealActionMeal(null)}>
                   {t(locale, 'open')}

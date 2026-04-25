@@ -121,19 +121,19 @@ Goal: make all modals behave and look like one system.
 ## Phase 4: Planner Screen Refinement
 Goal: make the planner clearer, more stable, and more responsive.
 
-- [ ] Standardize planner header layout across desktop and mobile planner views.
-- [ ] Improve planner grid spacing and alignment.
-- [ ] Make meal cards visually consistent in all states.
-- [ ] Improve empty meal tile treatment without adding placeholder text.
-- [ ] Ensure day labels and meal cards align cleanly in desktop view.
-- [ ] Improve mobile dinner/supper layouts so week context remains clear.
-- [ ] Verify planner interactions remain usable on touch and desktop.
-- [ ] Check tile hit areas and visual affordance for clickable meals.
+- [x] Standardize planner header layout across desktop and mobile planner views.
+- [x] Improve planner grid spacing and alignment.
+- [x] Make meal cards visually consistent in all states.
+- [x] Improve empty meal tile treatment without adding placeholder text.
+- [x] Ensure day labels and meal cards align cleanly in desktop view.
+- [x] Improve mobile dinner/supper layouts so week context remains clear.
+- [x] Verify planner interactions remain usable on touch and desktop.
+- [x] Check tile hit areas and visual affordance for clickable meals.
 
 ### Pause / Test / Commit
-- [ ] Pause and ask the user to test Phase 4.
-- [ ] Address feedback from Phase 4 testing.
-- [ ] Commit Phase 4.
+- [x] Pause and ask the user to test Phase 4.
+- [x] Address feedback from Phase 4 testing.
+- [x] Commit Phase 4.
 - [ ] Ask whether to continue.
 
 ---

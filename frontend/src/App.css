@@ -7,6 +7,7 @@
 }
 
 /* ── Surfaces ───────────────────────────────────────────── */
+.app-topbar,
 .hero-card,
 .panel {
   background: var(--surface);
@@ -16,6 +17,20 @@
 }
 
 /* ── Header ─────────────────────────────────────────────── */
+.app-topbar {
+  display: grid;
+  gap: var(--space-compact);
+  padding: 0.65rem 0.85rem;
+  position: relative;
+}
+
+.topbar-main {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-regular);
+}
+
 .hero-card {
   display: flex;
   position: relative;
@@ -30,6 +45,57 @@
   font-weight: 700;
   white-space: nowrap;
   flex: 0 1 auto;
+}
+
+.topbar-nav {
+  justify-content: flex-start;
+}
+
+.topbar-main .week-pill {
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.utility-menu-wrap {
+  position: relative;
+  justify-self: end;
+}
+
+.hamburger-button {
+  min-width: var(--control-height-compact);
+}
+
+.utility-menu {
+  position: absolute;
+  top: calc(100% + var(--space-compact));
+  right: 0;
+  z-index: 80;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 12rem;
+  padding: var(--space-compact);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+}
+
+.utility-menu-item {
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: var(--space-regular);
+  text-align: left;
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.utility-menu-item:hover {
+  background: var(--surface-muted);
 }
 
 .hero-controls {
@@ -78,6 +144,10 @@ textarea,
   font: inherit;
 }
 
+.utility-menu-item {
+  font: inherit;
+}
+
 /* ── Tab bars ───────────────────────────────────────────── */
 .tab-bar {
   display: flex;
@@ -93,12 +163,6 @@ textarea,
 
 .tab-bar-mobile {
   display: none;
-}
-
-.panel.tab-panel {
-  padding: 0.65rem 0.85rem;
-  display: flex;
-  align-items: center;
 }
 
 /* ── Week pill (non-interactive) ────────────────────────── */
@@ -177,12 +241,17 @@ textarea,
   align-items: start;
 }
 
+.main-layout-wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .content-column,
 .sidebar-column {
   min-width: 0;
 }
 
-.content-column.hidden {
+.content-column.hidden,
+.sidebar-column.hidden {
   display: none !important;
 }
 
@@ -206,41 +275,82 @@ textarea,
 
 .planner-header-row {
   align-items: center;
+  min-height: var(--control-height);
 }
 
 /* ── Desktop planner grid ───────────────────────────────── */
 .planner-grid {
   display: grid;
-  grid-template-columns: clamp(6rem, 10vw, 8rem) repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: clamp(7.25rem, 12vw, 9.5rem) repeat(2, minmax(0, 1fr));
+  gap: var(--space-regular);
+  align-items: stretch;
 }
 
 .planner-head,
 .planner-day {
   font-weight: 700;
   color: var(--text-primary);
-  padding: 0.5rem 0.25rem;
+  padding: var(--space-compact) var(--space-regular);
+}
+
+.planner-head {
+  min-height: var(--control-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+}
+
+.planner-corner {
+  background: transparent;
+}
+
+.planner-day {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--surface-muted) 60%, transparent);
+  min-height: 3.75rem;
+  overflow-wrap: anywhere;
 }
 
 /* ── Mobile planner: one column per meal type ───────────── */
 .mobile-planner {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--space-regular);
 }
 
 .mobile-planner-row {
   display: grid;
-  grid-template-columns: 5.5rem 1fr;
-  gap: 0.75rem;
-  align-items: center;
+  grid-template-columns: minmax(6.5rem, 7.5rem) minmax(0, 1fr);
+  gap: var(--space-regular);
+  align-items: stretch;
 }
 
-/* Day label inside mobile rows — vertically centred, compact */
-.mobile-planner-row .planner-day {
+.mobile-planner-day {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: var(--space-compact);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--surface-muted) 60%, transparent);
+  color: var(--text-primary);
   font-size: 0.9rem;
-  padding: 0;
   line-height: 1.3;
   word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.mobile-planner-day span {
+  font-weight: 700;
+}
+
+.mobile-planner-day small {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
 }
 
 /* ── Meal card ──────────────────────────────────────────── */
@@ -249,20 +359,42 @@ textarea,
   background: var(--surface-strong);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  padding: var(--space-spacious);
+  padding: var(--space-spacious) calc(var(--space-spacious) + var(--space-compact));
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-regular);
+  min-height: 3.75rem;
+  width: 100%;
+  color: var(--text-primary);
+  text-align: left;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease, transform 150ms ease;
 }
 
 .meal-card-clickable {
   cursor: pointer;
 }
 
+.meal-card-clickable:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--focus-ring);
+}
+
+.meal-card-clickable:active {
+  transform: translateY(1px);
+}
+
+.meal-card-clickable:focus-visible {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: var(--focus-ring);
+}
+
 .meal-card-empty {
   min-height: 3.5rem;
-  opacity: 0.35;
+  background: color-mix(in srgb, var(--surface-muted) 55%, transparent);
+  border-style: dashed;
+  opacity: 0.7;
 }
 
 .meal-summary {
@@ -287,9 +419,15 @@ textarea {
   border-radius: var(--radius-control);
   border: 1px solid var(--border);
   padding: 0.8rem 0.9rem;
-  background: var(--surface-overlay);
+  background: var(--surface-strong);
   color: var(--text-primary);
   transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  background: color-mix(in srgb, var(--surface-strong) 92%, var(--accent));
 }
 
 input::placeholder,
@@ -459,6 +597,7 @@ textarea:disabled {
 .suggestion-item:focus-visible,
 .accent-option:focus-visible,
 .calendar-day-button:focus-visible,
+.utility-menu-item:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
@@ -503,6 +642,10 @@ textarea:focus-visible {
   display: grid;
   grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
   gap: 1rem;
+}
+
+.recipe-shopping-toggle {
+  flex-shrink: 0;
 }
 
 .recipe-form,
@@ -697,8 +840,18 @@ textarea:focus-visible {
 }
 
 .field-readonly {
+  background: color-mix(in srgb, var(--surface-muted) 45%, var(--surface-strong));
+  border-color: color-mix(in srgb, var(--border) 55%, transparent);
+  color: var(--text-secondary);
   pointer-events: none;
   cursor: default;
+}
+
+.ingredient-table-input.field-readonly,
+.field-readonly.ingredient-table-input {
+  background: color-mix(in srgb, var(--surface-muted) 36%, transparent);
+  border-radius: var(--radius-control);
+  padding-inline: var(--space-compact);
 }
 
 .recipe-link-row {
@@ -984,6 +1137,12 @@ textarea:focus-visible {
   align-items: center;
 }
 
+.recipe-name-row .icon-button,
+.recipe-link-row .icon-button {
+  width: var(--control-height);
+  flex: 0 0 var(--control-height);
+}
+
 .recipe-name-field {
   position: relative;
 }
@@ -1147,17 +1306,30 @@ textarea:focus-visible {
     gap: 1.25rem;
   }
 
+  .main-layout-wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .recipe-layout {
     grid-template-columns: 1fr;
   }
 
+  .recipe-shopping-toggle {
+    display: none;
+  }
+
   .planner-grid {
-    grid-template-columns: 5.5rem repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: minmax(6.75rem, 7.5rem) repeat(2, minmax(0, 1fr));
+    gap: var(--space-compact);
+  }
+
+  .planner-day,
+  .meal-card {
+    min-height: 3.5rem;
   }
 
   .recipe-name-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .panel {
@@ -1188,6 +1360,20 @@ textarea:focus-visible {
     min-height: 3.3rem;
   }
 
+  .app-topbar {
+    position: sticky;
+    top: 0.75rem;
+    z-index: 30;
+  }
+
+  .topbar-main {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .topbar-main .week-pill {
+    justify-self: center;
+  }
+
   .hero-title {
     min-width: 0;
   }
@@ -1210,6 +1396,7 @@ textarea:focus-visible {
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 0.4rem;
+    justify-content: center;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity;
@@ -1227,9 +1414,6 @@ textarea:focus-visible {
 
   .panel.tab-panel {
     min-height: 3.3rem;
-    position: sticky;
-    top: 0.75rem;
-    z-index: 30;
   }
 
   .desktop-only {
@@ -1258,12 +1442,12 @@ textarea:focus-visible {
   }
 
   .recipe-name-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .recipe-link-row {
     align-items: stretch;
-    flex-direction: column;
+    flex-direction: row;
   }
 
   .panel-header {
@@ -1281,6 +1465,17 @@ textarea:focus-visible {
 
   .meal-card {
     align-items: center;
+    min-height: 3.65rem;
+    padding: var(--space-regular) var(--space-spacious);
+  }
+
+  .mobile-planner-row {
+    grid-template-columns: minmax(6rem, 7rem) minmax(0, 1fr);
+    gap: var(--space-compact);
+  }
+
+  .mobile-planner-day {
+    font-size: 0.82rem;
   }
 
   .shopping-entry-row input {
@@ -1290,5 +1485,18 @@ textarea:focus-visible {
   .shopping-entry-row .icon-button {
     min-width: 1.875rem;
     padding: 0.3rem;
+  }
+}
+
+@media (max-width: 379px) {
+  .mobile-planner-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-planner-day {
+    min-height: auto;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
   }
 }
