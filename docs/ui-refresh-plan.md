@@ -169,27 +169,27 @@ Goal: make recipe search, creation, and browsing consistent and scalable.
 ## Phase 6: Dense Editor Cleanup
 Goal: make tags, ingredients, and inline suggestions feel intentional and consistent.
 
-- [ ] Standardize compact editing styles for:
+- [x] Standardize compact editing styles for:
   - ingredient table
   - inline tag editing
   - suggestion popovers
-- [ ] Ensure ingredient table works at all screen sizes without overflow.
-- [ ] Improve row spacing, readability, and focus handling in the ingredient table.
-- [ ] Ensure remove controls align cleanly with rows.
-- [ ] Review tag pill creation and removal behavior for consistency.
-- [ ] Make suggestion popovers visually consistent across:
+- [x] Ensure ingredient table works at all screen sizes without overflow.
+- [x] Improve row spacing, readability, and focus handling in the ingredient table.
+- [x] Ensure remove controls align cleanly with rows.
+- [x] Review tag pill creation and removal behavior for consistency.
+- [x] Make suggestion popovers visually consistent across:
   - ingredient names
   - groups
   - tags
   - recipe-name suggestions if applicable
-- [ ] Constrain popover width/height and prevent clipping at modal edges.
-- [ ] Verify all inline editing patterns work in both editable and locked modes.
-- [ ] Verify keyboard navigation and focus visibility for ingredient cells, tag editing, and suggestion selection.
+- [x] Constrain popover width/height and prevent clipping at modal edges.
+- [x] Verify all inline editing patterns work in both editable and locked modes.
+- [x] Verify keyboard navigation and focus visibility for ingredient cells, tag editing, and suggestion selection.
 
 ### Pause / Test / Commit
-- [ ] Pause and ask the user to test Phase 6.
-- [ ] Address feedback from Phase 6 testing.
-- [ ] Commit Phase 6.
+- [x] Pause and ask the user to test Phase 6.
+- [x] Address feedback from Phase 6 testing.
+- [x] Commit Phase 6.
 - [ ] Ask whether to continue.
 
 ---

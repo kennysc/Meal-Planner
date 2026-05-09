@@ -741,6 +741,10 @@ textarea:focus-visible {
   position: relative;
 }
 
+.tag-row-field .chip-row {
+  align-items: center;
+}
+
 .ingredient-editor {
   display: grid;
   gap: var(--space-compact);
@@ -759,12 +763,21 @@ textarea:focus-visible {
   display: grid;
   gap: 0.25rem;
   max-width: min(22rem, calc(100vw - 3rem));
+  overflow-y: auto;
   padding: var(--space-compact);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   background: var(--surface-strong);
   box-shadow: var(--shadow);
   z-index: 120;
+}
+
+.field-suggestion-list-above {
+  transform-origin: bottom center;
+}
+
+.field-suggestion-list-below {
+  transform-origin: top center;
 }
 
 .field-suggestion-list-ingredient {
@@ -775,13 +788,16 @@ textarea:focus-visible {
   display: block;
   width: 100%;
   max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--surface-strong) 88%, var(--surface-muted));
 }
 
 .ingredient-table-wrap {
   min-width: 0;
   width: 100%;
-  overflow-x: hidden;
-  padding-right: 2rem;
+  overflow-x: clip;
+  padding: 0.45rem 0.55rem;
 }
 
 .ingredient-table {
@@ -809,17 +825,13 @@ textarea:focus-visible {
   width: 28%;
 }
 
-.ingredient-col-remove {
-  width: 0;
-}
-
 .ingredient-table th,
 .ingredient-table td {
   position: relative;
   overflow: visible;
-  padding: 0.2rem 0.35rem;
+  padding: 0.35rem 0.45rem;
   text-align: left;
-  vertical-align: middle;
+  vertical-align: top;
   background: transparent;
   border-bottom: 1px solid var(--border);
 }
@@ -850,10 +862,10 @@ textarea:focus-visible {
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  padding: 0.2rem 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
   font-size: 0.9rem;
 }
 
@@ -868,29 +880,27 @@ textarea:focus-visible {
 
 .ingredient-table-compact th:last-child,
 .ingredient-table-compact td:last-child {
-  width: 1%;
   white-space: nowrap;
 }
 
-.ingredient-remove-button {
+.ingredient-name-field {
+  padding-right: 0;
+}
+
+.ingredient-name-field .ingredient-table-input {
+  padding-right: 2.2rem;
+}
+
+.ingredient-inline-remove-button {
+  position: absolute;
+  top: 50%;
+  right: 0.3rem;
+  transform: translateY(-50%);
   min-width: 1.75rem;
   min-height: 1.75rem;
   padding: 0.15rem;
-}
-
-.ingredient-remove-cell {
-  position: relative;
-  width: 0;
-  padding: 0;
-  border-bottom-color: transparent;
-}
-
-.ingredient-remove-cell .ingredient-remove-button {
-  position: absolute;
-  top: 50%;
-  left: 0.35rem;
-  transform: translateY(-50%);
-  display: block;
+  color: var(--text-secondary);
+  z-index: 1;
 }
 
 .field-readonly {
@@ -905,7 +915,7 @@ textarea:focus-visible {
 .field-readonly.ingredient-table-input {
   background: color-mix(in srgb, var(--surface-muted) 36%, transparent);
   border-radius: var(--radius-control);
-  padding-inline: var(--space-compact);
+  padding-inline: 0.5rem;
 }
 
 .recipe-link-row {
@@ -958,6 +968,7 @@ textarea:focus-visible {
 
 .tag-pill-editor {
   position: relative;
+  min-width: 8rem;
   padding-right: 0.9rem;
 }
 
@@ -970,8 +981,21 @@ textarea:focus-visible {
   border: none;
   background: transparent;
   color: inherit;
+  width: 100%;
   min-width: 5rem;
   padding: 0;
+}
+
+.tag-pill-add {
+  justify-content: center;
+  min-width: 2rem;
+  color: var(--text-primary);
+}
+
+.tag-pill-add:hover {
+  opacity: 1;
+  background: var(--surface-strong);
+  border-color: var(--border-strong);
 }
 
 .tag-pill-input:focus-visible {
@@ -1233,6 +1257,8 @@ textarea:focus-visible {
   left: 0;
   right: 0;
   top: calc(100% + 0.35rem);
+  max-height: min(18rem, calc(100vh - 10rem));
+  overflow-y: auto;
 }
 
 /* ── Settings modal ─────────────────────────────────────── */
@@ -1421,6 +1447,22 @@ textarea:focus-visible {
     padding: 1.25rem;
   }
 
+  .ingredient-col-name {
+    width: 34%;
+  }
+
+  .ingredient-col-quantity {
+    width: 16%;
+  }
+
+  .ingredient-col-unit {
+    width: 18%;
+  }
+
+  .ingredient-col-group {
+    width: 30%;
+  }
+
   .hero-card {
     row-gap: 0.5rem;
   }
@@ -1570,6 +1612,61 @@ textarea:focus-visible {
     align-items: center;
     min-height: 3.65rem;
     padding: var(--space-regular) var(--space-spacious);
+  }
+
+  .ingredient-table colgroup,
+  .ingredient-table thead {
+    display: none;
+  }
+
+  .ingredient-table,
+  .ingredient-table tbody,
+  .ingredient-table tr,
+  .ingredient-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .ingredient-table-wrap {
+    padding: 0.4rem;
+  }
+
+  .ingredient-table tbody {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .ingredient-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem 0.75rem;
+    padding: 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius-card) - 2px);
+    background: var(--surface);
+  }
+
+  .ingredient-table td {
+    border: none;
+    padding: 0;
+  }
+
+  .ingredient-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.25rem;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .ingredient-name-cell,
+  .ingredient-group-cell {
+    grid-column: 1 / -1;
+  }
+
+  .ingredient-name-field .ingredient-table-input {
+    padding-right: 2rem;
   }
 
   .mobile-planner-row {

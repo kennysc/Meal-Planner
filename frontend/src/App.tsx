@@ -55,6 +55,8 @@ type SuggestionOverlayPosition = {
   top: number
   left: number
   width: number
+  maxHeight: number
+  placement: 'above' | 'below'
 }
 
 type ModalSize = 'small' | 'medium' | 'large'
@@ -92,6 +94,8 @@ const CATPPUCCIN_ACCENTS = [
   'lavender',
 ] as const
 const DEFAULT_ACCENT: Record<Theme, AccentName> = { light: 'mauve', dark: 'mauve' }
+const MOBILE_ONLY_TABS: MobileTab[] = ['dinner', 'supper', 'shopping']
+const MOBILE_PLANNER_TABS: MobileTab[] = ['dinner', 'supper', 'shopping', 'recipes']
 const EMPTY_RECIPE_DRAFT: RecipeDraft = { name: '', url: '', notes: '', tags: [], ingredients: [], isFavorite: false }
 
 function getStoredAccent(theme: Theme) {
@@ -172,6 +176,28 @@ function suggestionOverlayWidth(kind: Exclude<ActiveEditorField, null>['kind'], 
   const availableWidth = Math.max(minimumWidth, viewportWidth - viewportPadding * 2)
 
   return Math.min(Math.max(anchorWidth, minimumWidth), maximumWidth, availableWidth)
+}
+
+function suggestionOverlayLayout(
+  rect: DOMRect,
+  kind: Exclude<ActiveEditorField, null>['kind'],
+  viewportWidth: number,
+  viewportHeight: number,
+): SuggestionOverlayPosition {
+  const viewportPadding = 16
+  const offset = 6
+  const width = suggestionOverlayWidth(kind, rect.width, viewportWidth)
+  const maxLeft = viewportWidth - viewportPadding - width
+  const left = Math.max(viewportPadding, Math.min(rect.left, maxLeft))
+  const availableBelow = Math.max(120, viewportHeight - rect.bottom - viewportPadding - offset)
+  const availableAbove = Math.max(120, rect.top - viewportPadding - offset)
+  const placement: SuggestionOverlayPosition['placement'] = availableBelow < 180 && availableAbove > availableBelow ? 'above' : 'below'
+  const maxHeight = Math.min(320, placement === 'below' ? availableBelow : availableAbove)
+  const top = placement === 'below'
+    ? rect.bottom + offset
+    : Math.max(viewportPadding, rect.top - maxHeight - offset)
+
+  return { top, left, width, maxHeight, placement }
 }
 
 function autoResizeTextarea(event: FormEvent<HTMLTextAreaElement>) {
@@ -491,20 +517,33 @@ function App() {
     }
 
     const rect = anchor.getBoundingClientRect()
-    const viewportPadding = 16
-    const width = suggestionOverlayWidth(field.kind, rect.width, window.innerWidth)
-    const maxLeft = window.innerWidth - viewportPadding - width
-    const nextPosition = {
-      top: rect.bottom + 4,
-      left: Math.max(viewportPadding, Math.min(rect.left, maxLeft)),
-      width,
-    }
+    const nextPosition: SuggestionOverlayPosition = suggestionOverlayLayout(rect, field.kind, window.innerWidth, window.innerHeight)
     setSuggestionOverlayPosition((current) => {
-      if (current?.top === nextPosition.top && current.left === nextPosition.left && current.width === nextPosition.width) {
+      if (
+        current?.top === nextPosition.top
+        && current.left === nextPosition.left
+        && current.width === nextPosition.width
+        && current.maxHeight === nextPosition.maxHeight
+        && current.placement === nextPosition.placement
+      ) {
         return current
       }
       return nextPosition
     })
+  }
+
+  function handleSuggestionFieldKeyDown(event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeEditorSuggestions()
+      return
+    }
+
+    if (event.key !== 'ArrowDown') return
+    const firstSuggestion = suggestionListRef.current?.querySelector<HTMLButtonElement>('button')
+    if (!firstSuggestion) return
+    event.preventDefault()
+    firstSuggestion.focus()
   }
 
   function handleEditorFieldBlur(event: FocusEvent<HTMLElement>) {
@@ -1247,8 +1286,6 @@ function App() {
   }, {}), [week?.meals])
 
   const editingMeal = week?.meals.find((meal) => meal.id === editingMealId) ?? null
-  const mobileOnlyTabs: MobileTab[] = ['dinner', 'supper', 'shopping']
-  const mobilePlannerTabs: MobileTab[] = ['dinner', 'supper', 'shopping', 'recipes']
   const desktopTabs: NavTab<DesktopTab>[] = [
     { key: 'planner', label: t(locale, 'planner') },
     { key: 'recipes', label: t(locale, 'recipes') },
@@ -1259,13 +1296,13 @@ function App() {
     { key: 'shopping', label: t(locale, 'shoppingList') },
     { key: 'recipes', label: t(locale, 'recipes') },
   ]
-  const currentMobileTab = activeTab === 'planner' ? 'dinner' : (mobilePlannerTabs.includes(activeTab as MobileTab) ? activeTab as MobileTab : 'dinner')
+  const currentMobileTab = activeTab === 'planner' ? 'dinner' : (MOBILE_PLANNER_TABS.includes(activeTab as MobileTab) ? activeTab as MobileTab : 'dinner')
 
   useEffect(() => {
     const phoneMedia = window.matchMedia('(max-width: 639px)')
 
     const syncActiveTabToViewport = () => {
-      if (!phoneMedia.matches && mobileOnlyTabs.includes(activeTab as MobileTab)) {
+      if (!phoneMedia.matches && MOBILE_ONLY_TABS.includes(activeTab as MobileTab)) {
         setActiveTab('planner')
       }
     }
@@ -1330,6 +1367,7 @@ function App() {
       top: `${suggestionOverlayPosition.top}px`,
       left: `${suggestionOverlayPosition.left}px`,
       width: `${suggestionOverlayPosition.width}px`,
+      maxHeight: `${suggestionOverlayPosition.maxHeight}px`,
     }
 
     if (field.kind === 'ingredient') {
@@ -1337,7 +1375,11 @@ function App() {
         createPortal(
         <div
           ref={suggestionListRef}
-          className="field-suggestion-list field-suggestion-list-ingredient"
+          className={[
+            'field-suggestion-list',
+            'field-suggestion-list-ingredient',
+            `field-suggestion-list-${suggestionOverlayPosition.placement}`,
+          ].join(' ')}
           style={overlayStyle}
           onMouseDown={cancelEditorBlur}
           onFocus={cancelEditorBlur}
@@ -1347,6 +1389,7 @@ function App() {
             <button
               key={ingredient.name}
               className="suggestion-item"
+              type="button"
               onMouseDown={(event) => {
                 event.preventDefault()
                 applyIngredientSuggestion(field.scope, field.index ?? 0, ingredient.name)
@@ -1366,7 +1409,7 @@ function App() {
         createPortal(
         <div
           ref={suggestionListRef}
-          className="field-suggestion-list"
+          className={['field-suggestion-list', `field-suggestion-list-${suggestionOverlayPosition.placement}`].join(' ')}
           style={overlayStyle}
           onMouseDown={cancelEditorBlur}
           onFocus={cancelEditorBlur}
@@ -1376,6 +1419,7 @@ function App() {
             <button
               key={group}
               className="suggestion-item"
+              type="button"
               onMouseDown={(event) => {
                 event.preventDefault()
                 applyGroupSuggestion(field.scope, field.index ?? 0, group)
@@ -1395,7 +1439,7 @@ function App() {
       createPortal(
       <div
         ref={suggestionListRef}
-        className="field-suggestion-list"
+        className={['field-suggestion-list', `field-suggestion-list-${suggestionOverlayPosition.placement}`].join(' ')}
         style={overlayStyle}
         onMouseDown={cancelEditorBlur}
         onFocus={cancelEditorBlur}
@@ -1405,6 +1449,7 @@ function App() {
           <button
             key={tag}
             className="suggestion-item"
+            type="button"
             onMouseDown={(event) => {
               event.preventDefault()
               applyTagSuggestion(field.scope, tag)
@@ -1756,6 +1801,7 @@ function App() {
                             }}
                             onChange={(event) => setRecipeFormTagDraft(event.target.value)}
                             onKeyDown={(event) => {
+                              handleSuggestionFieldKeyDown(event)
                               if (event.key !== 'Enter') return
                               event.preventDefault()
                               commitRecipeFormTag()
@@ -1764,7 +1810,7 @@ function App() {
                           {activeEditorField?.scope === 'form' && activeEditorField.kind === 'tag' ? renderFieldSuggestions(activeEditorField) : null}
                         </div>
                       ) : null}
-                      <button className="secondary-button icon-button" onClick={beginRecipeFormTagEdit} aria-label={t(locale, 'add')} title={t(locale, 'add')}>
+                      <button className="tag-pill tag-pill-add" onClick={beginRecipeFormTagEdit} aria-label={t(locale, 'add')} title={t(locale, 'add')} type="button">
                         <span aria-hidden="true">+</span>
                       </button>
                     </div>
@@ -1780,7 +1826,6 @@ function App() {
                         <col className="ingredient-col-quantity" />
                         <col className="ingredient-col-unit" />
                         <col className="ingredient-col-group" />
-                        <col className="ingredient-col-remove" />
                       </colgroup>
                       <thead>
                         <tr>
@@ -1788,18 +1833,17 @@ function App() {
                           <th>{t(locale, 'quantity')}</th>
                           <th>{t(locale, 'unit')}</th>
                           <th>{t(locale, 'group')}</th>
-                          <th aria-label={t(locale, 'close')}></th>
                         </tr>
                       </thead>
                       <tbody>
                         {recipeFormEditableIngredients.map((ingredient, index) => (
                           <tr key={`recipe-form-ingredient-${index}`}>
-                            <td>
+                            <td className="ingredient-name-cell" data-label={t(locale, 'ingredient')}>
                               <div
                                 ref={(element) => {
                                   editorFieldRefs.current[`form:ingredient:${index}`] = element
                                 }}
-                                className="field-with-suggestions"
+                                className="field-with-suggestions ingredient-name-field"
                                 onFocus={cancelEditorBlur}
                                 onBlur={handleEditorFieldBlur}
                               >
@@ -1809,6 +1853,7 @@ function App() {
                                   className="ingredient-table-input ingredient-table-textarea"
                                   rows={1}
                                   onInput={autoResizeTextarea}
+                                  onKeyDown={handleSuggestionFieldKeyDown}
                                   onFocus={(event) => {
                                     cancelEditorBlur()
                                     setActiveIngredientQuery(event.target.value)
@@ -1819,10 +1864,20 @@ function App() {
                                     updateRecipeFormIngredient(index, 'name', event.target.value)
                                   }}
                                 />
+                                <button
+                                  className="ghost-button ingredient-inline-remove-button"
+                                  onClick={() => removeRecipeFormIngredient(index)}
+                                  aria-label={t(locale, 'close')}
+                                  title={t(locale, 'close')}
+                                  disabled={recipeFormEditableIngredients.length === 1 && isIngredientDraftEmpty(ingredient)}
+                                  type="button"
+                                >
+                                  ×
+                                </button>
                                 {activeEditorField?.scope === 'form' && activeEditorField.kind === 'ingredient' && activeEditorField.index === index ? renderFieldSuggestions(activeEditorField) : null}
                               </div>
                             </td>
-                            <td>
+                            <td className="ingredient-quantity-cell" data-label={t(locale, 'quantity')}>
                               <textarea
                                 value={ingredient.quantity}
                                 placeholder={t(locale, 'quantity')}
@@ -1832,7 +1887,7 @@ function App() {
                                 onChange={(event) => updateRecipeFormIngredient(index, 'quantity', event.target.value)}
                               />
                             </td>
-                            <td>
+                            <td className="ingredient-unit-cell" data-label={t(locale, 'unit')}>
                               <textarea
                                 value={ingredient.unit}
                                 placeholder={t(locale, 'unit')}
@@ -1842,7 +1897,7 @@ function App() {
                                 onChange={(event) => updateRecipeFormIngredient(index, 'unit', event.target.value)}
                               />
                             </td>
-                            <td>
+                            <td className="ingredient-group-cell" data-label={t(locale, 'group')}>
                               <div
                                 ref={(element) => {
                                   editorFieldRefs.current[`form:group:${index}`] = element
@@ -1857,6 +1912,7 @@ function App() {
                                   className="ingredient-table-input ingredient-table-textarea"
                                   rows={1}
                                   onInput={autoResizeTextarea}
+                                  onKeyDown={handleSuggestionFieldKeyDown}
                                   onFocus={(event) => {
                                     cancelEditorBlur()
                                     setActiveGroupQuery(event.target.value)
@@ -1869,17 +1925,6 @@ function App() {
                                 />
                                 {activeEditorField?.scope === 'form' && activeEditorField.kind === 'group' && activeEditorField.index === index ? renderFieldSuggestions(activeEditorField) : null}
                               </div>
-                            </td>
-                            <td className="ingredient-remove-cell">
-                              <button
-                                className="ghost-button ingredient-remove-button"
-                                onClick={() => removeRecipeFormIngredient(index)}
-                                aria-label={t(locale, 'close')}
-                                title={t(locale, 'close')}
-                                disabled={recipeFormEditableIngredients.length === 1 && isIngredientDraftEmpty(ingredient)}
-                              >
-                                ×
-                              </button>
                             </td>
                           </tr>
                         ))}
@@ -2065,6 +2110,7 @@ function App() {
                           }}
                           onChange={(event) => setRecipeModalTagDraft(event.target.value)}
                           onKeyDown={(event) => {
+                            handleSuggestionFieldKeyDown(event)
                             if (event.key !== 'Enter' || recipeModalLocked) return
                             event.preventDefault()
                             commitRecipeModalTag()
@@ -2074,7 +2120,7 @@ function App() {
                       </div>
                     ) : null}
                     {!recipeModalLocked ? (
-                      <button className="secondary-button icon-button" onClick={beginRecipeModalTagEdit} aria-label={t(locale, 'add')} title={t(locale, 'add')}>
+                      <button className="tag-pill tag-pill-add" onClick={beginRecipeModalTagEdit} aria-label={t(locale, 'add')} title={t(locale, 'add')} type="button">
                         <span aria-hidden="true">+</span>
                       </button>
                     ) : null}
@@ -2083,58 +2129,69 @@ function App() {
                <div className="ingredient-editor">
                  <div className="ingredient-table-shell">
                  <div className="ingredient-table-wrap">
-                 <table className="ingredient-table ingredient-table-compact">
-                   <colgroup>
-                     <col className="ingredient-col-name" />
-                     <col className="ingredient-col-quantity" />
-                     <col className="ingredient-col-unit" />
-                     <col className="ingredient-col-group" />
-                     <col className="ingredient-col-remove" />
-                   </colgroup>
-                   <thead>
-                     <tr>
-                       <th>{t(locale, 'ingredient')}</th>
-                       <th>{t(locale, 'quantity')}</th>
-                       <th>{t(locale, 'unit')}</th>
-                       <th>{t(locale, 'group')}</th>
-                       <th aria-label={t(locale, 'close')}></th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     {recipeModalEditableIngredients.map((ingredient, index) => (
-                       <tr key={`recipe-modal-ingredient-${index}`}>
-                          <td>
-                              <div
-                                ref={(element) => {
-                                  editorFieldRefs.current[`modal:ingredient:${index}`] = element
-                                }}
-                                className="field-with-suggestions"
-                                onFocus={cancelEditorBlur}
-                                onBlur={handleEditorFieldBlur}
-                              >
-                               <textarea
+                  <table className="ingredient-table ingredient-table-compact">
+                    <colgroup>
+                      <col className="ingredient-col-name" />
+                      <col className="ingredient-col-quantity" />
+                      <col className="ingredient-col-unit" />
+                      <col className="ingredient-col-group" />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>{t(locale, 'ingredient')}</th>
+                        <th>{t(locale, 'quantity')}</th>
+                        <th>{t(locale, 'unit')}</th>
+                        <th>{t(locale, 'group')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recipeModalEditableIngredients.map((ingredient, index) => (
+                        <tr key={`recipe-modal-ingredient-${index}`}>
+                           <td className="ingredient-name-cell" data-label={t(locale, 'ingredient')}>
+                               <div
+                                 ref={(element) => {
+                                   editorFieldRefs.current[`modal:ingredient:${index}`] = element
+                                 }}
+                                 className="field-with-suggestions ingredient-name-field"
+                                 onFocus={cancelEditorBlur}
+                                 onBlur={handleEditorFieldBlur}
+                               >
+                                <textarea
                                  value={ingredient.name}
                                  placeholder={t(locale, 'ingredient')}
                                  className={recipeModalLocked ? 'field-readonly ingredient-table-input ingredient-table-textarea' : 'ingredient-table-input ingredient-table-textarea'}
-                                 rows={1}
-                                 onInput={autoResizeTextarea}
-                                 readOnly={recipeModalLocked}
+                                  rows={1}
+                                  onInput={autoResizeTextarea}
+                                  onKeyDown={handleSuggestionFieldKeyDown}
+                                  readOnly={recipeModalLocked}
                                  tabIndex={recipeModalLocked ? -1 : undefined}
                                  onFocus={(event) => {
                                    cancelEditorBlur()
                                    setActiveIngredientQuery(event.target.value)
                                    if (!recipeModalLocked) setActiveEditorField({ scope: 'modal', kind: 'ingredient', index })
                                  }}
-                                 onChange={(event) => {
-                                   setActiveIngredientQuery(event.target.value)
-                                   updateRecipeModalIngredient(index, 'name', event.target.value)
-                                 }}
-                               />
-                               {!recipeModalLocked && activeEditorField?.scope === 'modal' && activeEditorField.kind === 'ingredient' && activeEditorField.index === index ? renderFieldSuggestions(activeEditorField) : null}
-                             </div>
-                           </td>
-                          <td>
-                            <textarea
+                                  onChange={(event) => {
+                                    setActiveIngredientQuery(event.target.value)
+                                    updateRecipeModalIngredient(index, 'name', event.target.value)
+                                  }}
+                                />
+                                {!recipeModalLocked ? (
+                                  <button
+                                    className="ghost-button ingredient-inline-remove-button"
+                                    onClick={() => removeRecipeModalIngredient(index)}
+                                    aria-label={t(locale, 'close')}
+                                    title={t(locale, 'close')}
+                                    disabled={recipeModalEditableIngredients.length === 1 && isIngredientDraftEmpty(ingredient)}
+                                    type="button"
+                                  >
+                                    ×
+                                  </button>
+                                ) : null}
+                                {!recipeModalLocked && activeEditorField?.scope === 'modal' && activeEditorField.kind === 'ingredient' && activeEditorField.index === index ? renderFieldSuggestions(activeEditorField) : null}
+                              </div>
+                            </td>
+                           <td className="ingredient-quantity-cell" data-label={t(locale, 'quantity')}>
+                             <textarea
                               value={ingredient.quantity}
                               placeholder={t(locale, 'quantity')}
                               className={recipeModalLocked ? 'field-readonly ingredient-table-input ingredient-table-textarea' : 'ingredient-table-input ingredient-table-textarea'}
@@ -2145,8 +2202,8 @@ function App() {
                               onChange={(event) => updateRecipeModalIngredient(index, 'quantity', event.target.value)}
                             />
                           </td>
-                          <td>
-                            <textarea
+                           <td className="ingredient-unit-cell" data-label={t(locale, 'unit')}>
+                             <textarea
                               value={ingredient.unit}
                               placeholder={t(locale, 'unit')}
                               className={recipeModalLocked ? 'field-readonly ingredient-table-input ingredient-table-textarea' : 'ingredient-table-input ingredient-table-textarea'}
@@ -2157,8 +2214,8 @@ function App() {
                               onChange={(event) => updateRecipeModalIngredient(index, 'unit', event.target.value)}
                             />
                           </td>
-                          <td>
-                            <div
+                           <td className="ingredient-group-cell" data-label={t(locale, 'group')}>
+                             <div
                               ref={(element) => {
                                 editorFieldRefs.current[`modal:group:${index}`] = element
                               }}
@@ -2170,9 +2227,10 @@ function App() {
                                 value={ingredient.group}
                                 placeholder={t(locale, 'group')}
                                 className={recipeModalLocked ? 'field-readonly ingredient-table-input ingredient-table-textarea' : 'ingredient-table-input ingredient-table-textarea'}
-                                rows={1}
-                                onInput={autoResizeTextarea}
-                                readOnly={recipeModalLocked}
+                                 rows={1}
+                                 onInput={autoResizeTextarea}
+                                 onKeyDown={handleSuggestionFieldKeyDown}
+                                 readOnly={recipeModalLocked}
                                 tabIndex={recipeModalLocked ? -1 : undefined}
                                 onFocus={(event) => {
                                   cancelEditorBlur()
@@ -2186,19 +2244,6 @@ function App() {
                               />
                               {!recipeModalLocked && activeEditorField?.scope === 'modal' && activeEditorField.kind === 'group' && activeEditorField.index === index ? renderFieldSuggestions(activeEditorField) : null}
                             </div>
-                          </td>
-                          <td className="ingredient-remove-cell">
-                            {!recipeModalLocked ? (
-                              <button
-                                className="ghost-button ingredient-remove-button"
-                                onClick={() => removeRecipeModalIngredient(index)}
-                                aria-label={t(locale, 'close')}
-                                title={t(locale, 'close')}
-                                disabled={recipeModalEditableIngredients.length === 1 && isIngredientDraftEmpty(ingredient)}
-                              >
-                                ×
-                              </button>
-                            ) : null}
                           </td>
                         </tr>
                       ))}
