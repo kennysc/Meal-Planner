@@ -162,7 +162,7 @@ Goal: make recipe search, creation, and browsing consistent and scalable.
 - [x] Pause and ask the user to test Phase 5.
 - [x] Address feedback from Phase 5 testing.
 - [x] Commit Phase 5.
-- [ ] Ask whether to continue.
+- [x] Ask whether to continue.
 
 ---
 

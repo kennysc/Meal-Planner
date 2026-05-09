@@ -1247,6 +1247,7 @@ function App() {
   }, {}), [week?.meals])
 
   const editingMeal = week?.meals.find((meal) => meal.id === editingMealId) ?? null
+  const mobileOnlyTabs: MobileTab[] = ['dinner', 'supper', 'shopping']
   const mobilePlannerTabs: MobileTab[] = ['dinner', 'supper', 'shopping', 'recipes']
   const desktopTabs: NavTab<DesktopTab>[] = [
     { key: 'planner', label: t(locale, 'planner') },
@@ -1259,6 +1260,20 @@ function App() {
     { key: 'recipes', label: t(locale, 'recipes') },
   ]
   const currentMobileTab = activeTab === 'planner' ? 'dinner' : (mobilePlannerTabs.includes(activeTab as MobileTab) ? activeTab as MobileTab : 'dinner')
+
+  useEffect(() => {
+    const phoneMedia = window.matchMedia('(max-width: 639px)')
+
+    const syncActiveTabToViewport = () => {
+      if (!phoneMedia.matches && mobileOnlyTabs.includes(activeTab as MobileTab)) {
+        setActiveTab('planner')
+      }
+    }
+
+    syncActiveTabToViewport()
+    phoneMedia.addEventListener('change', syncActiveTabToViewport)
+    return () => phoneMedia.removeEventListener('change', syncActiveTabToViewport)
+  }, [activeTab])
 
   useEffect(() => {
     mobileTabRefs.current[currentMobileTab]?.scrollIntoView({
@@ -1444,10 +1459,21 @@ function App() {
     )
   }
 
-  function renderPlannerHeader(title: string) {
+  function renderWeekPickerTrigger() {
+    if (!week?.label) return null
+
+    return (
+      <button className="week-pill week-pill-button" onClick={openWeekPicker} type="button">
+        {week.label}
+      </button>
+    )
+  }
+
+  function renderPlannerHeader(title: string, includeWeekPicker = true) {
     return (
       <div className="panel-header planner-header-row">
         <h2>{title}</h2>
+        {includeWeekPicker ? renderWeekPickerTrigger() : null}
       </div>
     )
   }
@@ -1528,20 +1554,36 @@ function App() {
         <div className="topbar-main">
           <h1 className="hero-title">{t(locale, 'appTitle')}</h1>
 
-          <nav className="tab-bar tab-bar-desktop topbar-nav" aria-label={t(locale, 'planner')}>
-            {desktopTabs.map((tab) => (
-              <button
-                key={tab.key}
-                className={activeTab === tab.key ? 'tab-button active' : 'tab-button'}
-                onClick={() => setActiveTab(tab.key)}
-                aria-current={activeTab === tab.key ? 'page' : undefined}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+          <div className="topbar-tabs">
+            <nav className="tab-bar tab-bar-desktop topbar-nav" aria-label={t(locale, 'planner')}>
+              {desktopTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  className={activeTab === tab.key ? 'tab-button active' : 'tab-button'}
+                  onClick={() => setActiveTab(tab.key)}
+                  aria-current={activeTab === tab.key ? 'page' : undefined}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
 
-          {week?.label ? <button className="week-pill week-pill-button" onClick={openWeekPicker}>{week.label}</button> : null}
+            <nav className="tab-bar tab-bar-mobile topbar-nav" aria-label={t(locale, 'planner')}>
+              {mobileTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  ref={(element) => {
+                    mobileTabRefs.current[tab.key] = element
+                  }}
+                  className={currentMobileTab === tab.key ? 'tab-button active' : 'tab-button'}
+                  onClick={() => setActiveTab(tab.key)}
+                  aria-current={currentMobileTab === tab.key ? 'page' : undefined}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
 
           <div className="utility-menu-wrap" ref={utilityMenuRef}>
             <button
@@ -1581,22 +1623,6 @@ function App() {
             ) : null}
           </div>
         </div>
-
-        <nav className="tab-bar tab-bar-mobile" aria-label={t(locale, 'planner')}>
-          {mobileTabs.map((tab) => (
-            <button
-              key={tab.key}
-              ref={(element) => {
-                mobileTabRefs.current[tab.key] = element
-              }}
-              className={currentMobileTab === tab.key ? 'tab-button active' : 'tab-button'}
-              onClick={() => setActiveTab(tab.key)}
-              aria-current={currentMobileTab === tab.key ? 'page' : undefined}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
       </header>
 
       {loading ? (
@@ -1654,8 +1680,9 @@ function App() {
 
           <section className={currentMobileTab === 'shopping' ? 'content-column mobile-only' : 'content-column mobile-only hidden'}>
             <article className="panel shopping-panel">
-              <div className="panel-header">
+              <div className="panel-header planner-header-row">
                 <h2>{t(locale, 'shoppingList')}</h2>
+                {renderWeekPickerTrigger()}
               </div>
               {renderShoppingContent(week)}
             </article>
